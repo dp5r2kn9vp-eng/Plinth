@@ -1,0 +1,85 @@
+{
+  "schemaVersion": 1,
+  "format": {
+    "orientation": "landscape",
+    "width": 1920,
+    "height": 1080
+  },
+  "idleTimeoutSeconds": 120,
+  "pages": [
+    {
+      "id": "home",
+      "name": "Startseite",
+      "background": {
+        "color": "#0e1116",
+        "image": "f12",
+        "fit": "cover"
+      },
+      "elements": [
+        {
+          "id": "titel",
+          "type": "text",
+          "x": 120,
+          "y": 80,
+          "w": 1680,
+          "h": 140,
+          "text": "Willkommen im Museum",
+          "style": {
+            "fontFamily": "Inter",
+            "fontSize": 96,
+            "fontWeight": 700,
+            "color": "#ffffff",
+            "align": "left",
+            "verticalAlign": "middle"
+          }
+        },
+        {
+          "id": "logo",
+          "type": "image",
+          "x": 1600,
+          "y": 900,
+          "w": 200,
+          "h": 100,
+          "image": "f13",
+          "fit": "contain"
+        },
+        {
+          "id": "video1",
+          "type": "thumbnail",
+          "x": 120,
+          "y": 300,
+          "w": 800,
+          "h": 450,
+          "radius": 16,
+          "video": "f20",
+          "title": "Die Ausstellung",
+          "showTitle": true
+        },
+        {
+          "id": "video2",
+          "type": "thumbnail",
+          "x": 1000,
+          "y": 300,
+          "w": 800,
+          "h": 450,
+          "radius": 16,
+          "video": "f21",
+          "poster": "f22",
+          "title": "Rundgang"
+        }
+      ]
+    }
+  ],
+  "videoPage": {
+    "background": "#000000",
+    "fit": "contain",
+    "header": {
+      "height": 110,
+      "background": "#151a22",
+      "color": "#ffffff",
+      "backLabel": "Zurück",
+      "showTitle": true,
+      "fontSize": 40
+    }
+  }
+}

@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://plinth.klangniveau.de/schemas/manifest.schema.json",
+  "title": "Plinth Manifest",
+  "description": "Eine veröffentlichte Revision. Unveränderlich: zu jeder Revisionsnummer gibt es genau ein Manifest, das nie mehr geändert wird. Download-Links stehen NICHT im Manifest, die Player-API liefert sie getrennt und zeitlich begrenzt.",
+  "type": "object",
+  "required": ["schemaVersion", "revision", "publishedAt", "validFrom", "validTo", "priority", "layout", "files"],
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "revision": { "description": "Fortlaufend pro Projekt, beginnt bei 1", "type": "integer", "minimum": 1 },
+    "publishedAt": { "type": "string", "format": "date-time" },
+    "validFrom": { "description": "Ab wann gültig (lokale Zeit des Players, ISO 8601 ohne Zone) oder null = sofort", "type": ["string", "null"], "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}(:\\d{2})?$" },
+    "validTo": { "description": "Bis wann gültig oder null = unbegrenzt", "type": ["string", "null"], "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}(:\\d{2})?$" },
+    "priority": { "description": "Bei überlappenden Zeitfenstern gewinnt die höhere Priorität (M2)", "type": "integer", "default": 0 },
+    "layout": { "$ref": "layout.schema.json" },
+    "files": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "path", "size", "sha256", "mime"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "description": "Wird im Layout referenziert", "type": "string", "pattern": "^[A-Za-z0-9_-]{1,64}$" },
+          "path": { "description": "Relativer Pfad im lokalen Medienordner des Players", "type": "string", "pattern": "^media/[a-f0-9]{64}\\.[a-z0-9]{1,8}$" },
+          "size": { "type": "integer", "minimum": 0 },
+          "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+          "mime": { "type": "string", "pattern": "^(image|video)/[a-z0-9.+-]+$" }
+        }
+      }
+    }
+  }
+}

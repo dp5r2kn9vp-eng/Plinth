@@ -1,0 +1,130 @@
+{
+  "schemaVersion": 1,
+  "revision": 7,
+  "publishedAt": "2026-11-14T09:30:00Z",
+  "validFrom": null,
+  "validTo": null,
+  "priority": 0,
+  "layout": {
+    "schemaVersion": 1,
+    "format": {
+      "orientation": "landscape",
+      "width": 1920,
+      "height": 1080
+    },
+    "idleTimeoutSeconds": 120,
+    "pages": [
+      {
+        "id": "home",
+        "name": "Startseite",
+        "background": {
+          "color": "#0e1116",
+          "image": "f12",
+          "fit": "cover"
+        },
+        "elements": [
+          {
+            "id": "titel",
+            "type": "text",
+            "x": 120,
+            "y": 80,
+            "w": 1680,
+            "h": 140,
+            "text": "Willkommen im Museum",
+            "style": {
+              "fontFamily": "Inter",
+              "fontSize": 96,
+              "fontWeight": 700,
+              "color": "#ffffff",
+              "align": "left",
+              "verticalAlign": "middle"
+            }
+          },
+          {
+            "id": "logo",
+            "type": "image",
+            "x": 1600,
+            "y": 900,
+            "w": 200,
+            "h": 100,
+            "image": "f13",
+            "fit": "contain"
+          },
+          {
+            "id": "video1",
+            "type": "thumbnail",
+            "x": 120,
+            "y": 300,
+            "w": 800,
+            "h": 450,
+            "radius": 16,
+            "video": "f20",
+            "title": "Die Ausstellung",
+            "showTitle": true
+          },
+          {
+            "id": "video2",
+            "type": "thumbnail",
+            "x": 1000,
+            "y": 300,
+            "w": 800,
+            "h": 450,
+            "radius": 16,
+            "video": "f21",
+            "poster": "f22",
+            "title": "Rundgang"
+          }
+        ]
+      }
+    ],
+    "videoPage": {
+      "background": "#000000",
+      "fit": "contain",
+      "header": {
+        "height": 110,
+        "background": "#151a22",
+        "color": "#ffffff",
+        "backLabel": "Zurück",
+        "showTitle": true,
+        "fontSize": 40
+      }
+    }
+  },
+  "files": [
+    {
+      "id": "f12",
+      "path": "media/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.jpg",
+      "size": 482113,
+      "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "mime": "image/jpeg"
+    },
+    {
+      "id": "f13",
+      "path": "media/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb.png",
+      "size": 20311,
+      "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "mime": "image/png"
+    },
+    {
+      "id": "f20",
+      "path": "media/cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc.mp4",
+      "size": 1843200000,
+      "sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "mime": "video/mp4"
+    },
+    {
+      "id": "f21",
+      "path": "media/dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd.mp4",
+      "size": 912000000,
+      "sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "mime": "video/mp4"
+    },
+    {
+      "id": "f22",
+      "path": "media/eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee.jpg",
+      "size": 150220,
+      "sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+      "mime": "image/jpeg"
+    }
+  ]
+}
