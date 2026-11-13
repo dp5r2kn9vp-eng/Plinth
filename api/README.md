@@ -43,6 +43,20 @@ Auf Apache leitet `api/.htaccess` alle Anfragen auf `public/index.php`; `src/`, 
 | PATCH | `/api/v1/geraete/{id}` | `{name?, gesperrt?, projektId?}` |
 | DELETE | `/api/v1/geraete/{id}` | Gerät entfernen (Token wird ungültig) |
 
+### Projekte und Veröffentlichen
+
+| Methode | Pfad | Beschreibung |
+|---|---|---|
+| GET | `/api/v1/projekte` | Projekte mit aktueller Revisionsnummer |
+| POST | `/api/v1/projekte` | `{name, ausrichtung: landscape\|portrait}` legt Projekt mit Start-Entwurf an |
+| PATCH | `/api/v1/projekte/{id}` | `{name}` |
+| GET | `/api/v1/projekte/{id}/entwurf` | `{layout, version, aktualisiertAm}` |
+| PUT | `/api/v1/projekte/{id}/entwurf` | `{layout, version}`; 422 `invalid_layout`, 409 `draft_conflict` wenn inzwischen jemand anderes gespeichert hat |
+| POST | `/api/v1/projekte/{id}/veroeffentlichen` | `{gueltigAb?, gueltigBis?, prioritaet?}` → `{revision: {nummer, dateien, groesse}}`; 422 `files_not_ready` mit betroffenen Dateien |
+| GET | `/api/v1/projekte/{id}/revisionen` | letzte 100 Revisionen |
+
+Beim Veröffentlichen wird alles geprüft, bevor die Revision angelegt wird (Schema, Dateien fertig und im Speicher vorhanden). Danach gibt es entweder eine vollständige, aktive Revision oder keine Änderung. Thumbnails ohne eigenes Vorschaubild bekommen das Standbild des Videos.
+
 ### Medien
 
 Der Browser lädt direkt in den Speicher; durch PHP laufen nur kleine JSON-Anfragen.
@@ -67,6 +81,11 @@ Großer Ende-zu-Ende-Test gegen eine laufende Installation: `php bin/upload-smok
 | POST | `/api/v1/player/registrieren` | `{kundencode, name, appVersion}` → `{geraetId, token}` (10 Versuche/15 min pro IP) |
 | GET | `/api/v1/player/geraet` | eigenes Gerät; 401 `device_unknown`, 403 `device_blocked` |
 
+| GET | `/api/v1/player/revision` | `{revision, projektId}` mit `ETag`; mit `If-None-Match` → 304 (für Polling alle 30–60 s) |
+| GET | `/api/v1/player/manifest[?revision=n]` | `{manifest, downloads: {dateiId: url}, gueltigBis}`; 404 `no_revision` |
+| POST | `/api/v1/player/status` | `{geladeneRevision}` |
+
+Ein Gerät spielt das ihm zugewiesene Projekt, sonst das erste Projekt des Kunden. Download-Links sind `DOWNLOAD_URL_TTL_HOURS` gültig (Standard 6 h).
 Der Player sendet optional `X-Plinth-Version`. Pro Gerät sind 300 Anfragen in 15 Minuten erlaubt.
 
 ### Fehlerformat

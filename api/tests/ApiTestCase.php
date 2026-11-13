@@ -89,13 +89,15 @@ abstract class ApiTestCase extends TestCase
         if ($json !== null) {
             $headers += ['content-type' => 'application/json'];
         }
+        $query = [];
+        parse_str((string) parse_url($path, PHP_URL_QUERY), $query);
         return $this->app->handle(new Request(
             $method,
-            $path,
+            (string) parse_url($path, PHP_URL_PATH),
             $headers,
             $json === null ? '' : json_encode($json, JSON_THROW_ON_ERROR),
             $cookies,
-            [],
+            $query,
             $ip,
         ));
     }
