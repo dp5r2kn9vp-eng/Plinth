@@ -6,6 +6,10 @@ namespace Plinth\Api;
 use PDO;
 use Plinth\Api\Auth\AuthController;
 use Plinth\Api\Auth\SessionService;
+use Plinth\Api\Geraete\GeraeteController;
+use Plinth\Api\Geraete\GeraeteService;
+use Plinth\Api\Kunden\KundenController;
+use Plinth\Api\Kunden\KundenService;
 use Plinth\Api\Http\ApiException;
 use Plinth\Api\Http\Request;
 use Plinth\Api\Http\Response;
@@ -17,6 +21,8 @@ final class App
 
     private ?PDO $db = null;
     private ?AuthController $auth = null;
+    private ?GeraeteController $geraete = null;
+    private ?RateLimiter $limiter = null;
 
     /** @param (\Closure():PDO)|null $dbFactory */
     public function __construct(
@@ -80,7 +86,28 @@ final class App
         $r->post("$v/auth/logout", fn (Request $req) => $this->auth()->logout($req));
         $r->get("$v/auth/me", fn (Request $req) => $this->auth()->me($req));
 
+        // Studio (angemeldeter Benutzer)
+        $kunden = fn () => new KundenController(new KundenService($this->db()));
+        $r->get("$v/kunde", $this->user(fn (Request $req) => $kunden()->show($req)));
+        $r->post("$v/kunde/kundencode", $this->user(fn (Request $req) => $kunden()->rotateCode($req)));
+        $r->get("$v/geraete", $this->user(fn (Request $req) => $this->geraete()->index($req)));
+        $r->patch("$v/geraete/{id}", $this->user(fn (Request $req) => $this->geraete()->update($req)));
+        $r->delete("$v/geraete/{id}", $this->user(fn (Request $req) => $this->geraete()->delete($req)));
+
+        // Player (Gerätetoken)
+        $r->post("$v/player/registrieren", fn (Request $req) => $this->geraete()->register($req));
+        $r->get("$v/player/geraet", fn (Request $req) => $this->geraete()->self($req));
+
         return $r;
+    }
+
+    /** Umhüllt einen Handler: nur für angemeldete Benutzer. */
+    private function user(\Closure $handler): \Closure
+    {
+        return function (Request $req) use ($handler) {
+            $this->auth()->requireUser($req);
+            return $handler($req);
+        };
     }
 
     /**
@@ -94,7 +121,8 @@ final class App
         if (in_array($request->method, ['GET', 'HEAD', 'OPTIONS'], true)) {
             return;
         }
-        if (!$request->isJson()) {
+        // POST kann ein fremdes HTML-Formular senden; PUT/PATCH/DELETE nur per fetch mit CORS-Preflight.
+        if (($request->method === 'POST' || $request->body !== '') && !$request->isJson()) {
             throw new ApiException(415, 'unsupported_media_type', 'Content-Type muss application/json sein.');
         }
         $origin = $request->header('origin');
@@ -122,6 +150,20 @@ final class App
         return $this->db;
     }
 
+    private function limiter(): RateLimiter
+    {
+        return $this->limiter ??= new RateLimiter($this->db());
+    }
+
+    private function geraete(): GeraeteController
+    {
+        return $this->geraete ??= new GeraeteController(
+            new GeraeteService($this->db()),
+            new KundenService($this->db()),
+            $this->limiter(),
+        );
+    }
+
     private function auth(): AuthController
     {
         return $this->auth ??= new AuthController(
@@ -130,7 +172,7 @@ final class App
                 $this->config->int('SESSION_TTL_HOURS', 12) * 3600,
                 $this->config->int('SESSION_REMEMBER_DAYS', 30) * 86400,
             ),
-            new RateLimiter($this->db()),
+            $this->limiter(),
             rtrim($this->config->get('API_BASE_PATH', '/api'), '/') ?: '/',
             $this->config->bool('SESSION_COOKIE_SECURE', true),
         );

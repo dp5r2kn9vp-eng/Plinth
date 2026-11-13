@@ -8,6 +8,7 @@ declare(strict_types=1);
 use Plinth\Api\Auth\SessionService;
 use Plinth\Api\Config;
 use Plinth\Api\Database;
+use Plinth\Api\Kunden\KundenService;
 
 require dirname(__DIR__) . '/vendor/autoload.php';
 
@@ -42,9 +43,10 @@ $stmt = $db->prepare('SELECT id FROM kunden WHERE name = ?');
 $stmt->execute([$opt['kunde']]);
 $kundeId = $stmt->fetchColumn();
 if ($kundeId === false) {
-    $db->prepare('INSERT INTO kunden (name) VALUES (?)')->execute([$opt['kunde']]);
+    $code = KundenService::generateCode();
+    $db->prepare('INSERT INTO kunden (name, kundencode) VALUES (?, ?)')->execute([$opt['kunde'], $code]);
     $kundeId = $db->lastInsertId();
-    echo "Kunde angelegt: {$opt['kunde']} (#{$kundeId})\n";
+    echo "Kunde angelegt: {$opt['kunde']} (#{$kundeId}), Kundencode: " . KundenService::formatCode($code) . "\n";
 }
 
 $db->prepare('INSERT INTO benutzer (kunde_id, email, name, passwort_hash) VALUES (?, ?, ?, ?)')
