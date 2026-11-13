@@ -11,5 +11,7 @@
         <env name="TEST_DB_NAME" value="plinth_test" force="false"/>
         <env name="TEST_DB_USER" value="plinth" force="false"/>
         <env name="TEST_DB_PASS" value="" force="false"/>
+        <!-- S3-kompatibler Testspeicher (z. B. moto_server oder MinIO); leer = Upload-Tests überspringen -->
+        <env name="TEST_S3_ENDPOINT" value="" force="false"/>
     </php>
 </phpunit>

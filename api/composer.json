@@ -8,6 +8,7 @@
         "ext-json": "*",
         "ext-pdo": "*",
         "ext-pdo_mysql": "*",
+        "aws/aws-sdk-php": "^3.300",
         "opis/json-schema": "^2.4"
     },
     "require-dev": {
