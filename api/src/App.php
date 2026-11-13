@@ -8,6 +8,12 @@ use Plinth\Api\Auth\AuthController;
 use Plinth\Api\Auth\SessionService;
 use Plinth\Api\Dateien\DateienController;
 use Plinth\Api\Dateien\DateienService;
+use Plinth\Api\Player\PlayerController;
+use Plinth\Api\Player\PlayerService;
+use Plinth\Api\Projekte\ProjekteController;
+use Plinth\Api\Projekte\ProjekteService;
+use Plinth\Api\Projekte\PublishService;
+use Plinth\Api\Schema\SchemaValidator;
 use Plinth\Api\Storage\S3Storage;
 use Plinth\Api\Storage\Storage;
 use Plinth\Api\Geraete\GeraeteController;
@@ -121,9 +127,26 @@ final class App
         $r->patch("$v/dateien/{id}", $this->user(fn (Request $req) => $d()->update($req)));
         $r->delete("$v/dateien/{id}", $this->user(fn (Request $req) => $d()->delete($req)));
 
+        // Projekte, Entwurf, Veröffentlichen
+        $p = fn () => $this->projekteController();
+        $r->get("$v/projekte", $this->user(fn (Request $req) => $p()->index($req)));
+        $r->post("$v/projekte", $this->user(fn (Request $req) => $p()->create($req)));
+        $r->patch("$v/projekte/{id}", $this->user(fn (Request $req) => $p()->update($req)));
+        $r->get("$v/projekte/{id}/entwurf", $this->user(fn (Request $req) => $p()->draft($req)));
+        $r->put("$v/projekte/{id}/entwurf", $this->user(fn (Request $req) => $p()->saveDraft($req)));
+        $r->post("$v/projekte/{id}/veroeffentlichen", $this->user(fn (Request $req) => $p()->publish($req)));
+        $r->get("$v/projekte/{id}/revisionen", $this->user(fn (Request $req) => $p()->revisions($req)));
+
         // Player (Gerätetoken)
+        $pl = fn () => new PlayerController(
+            new PlayerService($this->db(), $this->storage(), $this->config->int('DOWNLOAD_URL_TTL_HOURS', 6) * 3600),
+            $this->geraete(),
+        );
         $r->post("$v/player/registrieren", fn (Request $req) => $this->geraete()->register($req));
         $r->get("$v/player/geraet", fn (Request $req) => $this->geraete()->self($req));
+        $r->get("$v/player/revision", fn (Request $req) => $pl()->revision($req));
+        $r->get("$v/player/manifest", fn (Request $req) => $pl()->manifest($req));
+        $r->post("$v/player/status", fn (Request $req) => $pl()->status($req));
 
         return $r;
     }
@@ -186,6 +209,13 @@ final class App
             $this->storage = ($this->storageFactory)();
         }
         return $this->storage;
+    }
+
+    private function projekteController(): ProjekteController
+    {
+        $schema = new SchemaValidator($this->config->get('SCHEMA_PATH'));
+        $projekte = new ProjekteService($this->db(), $schema);
+        return new ProjekteController($projekte, fn () => new PublishService($this->db(), $this->storage(), $schema, $projekte));
     }
 
     private function dateienService(): DateienService
