@@ -1,0 +1,88 @@
+{
+  "schemaVersion": 1,
+  "format": {
+    "orientation": "portrait",
+    "width": 1080,
+    "height": 1920
+  },
+  "idleTimeoutSeconds": 0,
+  "pages": [
+    {
+      "id": "home",
+      "background": {
+        "color": "#ffffff"
+      },
+      "elements": [
+        {
+          "id": "k",
+          "type": "text",
+          "x": 60,
+          "y": 80,
+          "w": 960,
+          "h": 200,
+          "text": "Hochkant",
+          "style": {
+            "fontSize": 120,
+            "color": "#111111",
+            "align": "center"
+          }
+        },
+        {
+          "id": "t",
+          "type": "thumbnail",
+          "x": 60,
+          "y": 400,
+          "w": 960,
+          "h": 540,
+          "video": "v1"
+        },
+        {
+          "id": "b",
+          "type": "button",
+          "x": 340,
+          "y": 1600,
+          "w": 400,
+          "h": 140,
+          "radius": 70,
+          "label": "Mehr",
+          "action": {
+            "type": "openPage",
+            "page": "info"
+          },
+          "style": {
+            "fontSize": 56,
+            "color": "#ffffff",
+            "background": "#5ee0c1"
+          }
+        }
+      ]
+    },
+    {
+      "id": "info",
+      "name": "Info",
+      "background": {
+        "color": "#f2f2f2"
+      },
+      "elements": [
+        {
+          "id": "z",
+          "type": "button",
+          "x": 40,
+          "y": 40,
+          "w": 300,
+          "h": 110,
+          "label": "Zurück",
+          "action": {
+            "type": "back"
+          }
+        }
+      ]
+    }
+  ],
+  "videoPage": {
+    "header": {
+      "height": 0,
+      "backLabel": "Zurück"
+    }
+  }
+}

@@ -1,0 +1,605 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://plinth.klangniveau.de/schemas/layout.schema.json",
+  "title": "Plinth Layout",
+  "description": "Inhalt eines Bildschirms: Seiten mit frei positionierten Elementen und die Videoseite. Alle Maße in Bezugseinheiten des gewählten Formats (quer 1920x1080, hochkant 1080x1920); Player und Studio skalieren proportional auf die echte Fläche.",
+  "type": "object",
+  "required": [
+    "schemaVersion",
+    "format",
+    "pages",
+    "videoPage"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": {
+      "const": 1
+    },
+    "format": {
+      "type": "object",
+      "required": [
+        "orientation",
+        "width",
+        "height"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "orientation": {
+          "enum": [
+            "landscape",
+            "portrait"
+          ]
+        },
+        "width": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "height": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
+    "idleTimeoutSeconds": {
+      "description": "Nach so vielen Sekunden ohne Bedienung zurück zur Startseite. 0 = aus.",
+      "type": "integer",
+      "minimum": 0,
+      "default": 120
+    },
+    "pages": {
+      "description": "Inhaltsseiten. Die erste Seite ist die Startseite (Home).",
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/page"
+      }
+    },
+    "videoPage": {
+      "$ref": "#/$defs/videoPage"
+    }
+  },
+  "$defs": {
+    "id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_-]{1,64}$"
+    },
+    "assetRef": {
+      "description": "Verweis auf files[].id im Manifest",
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_-]{1,64}$"
+    },
+    "color": {
+      "type": "string",
+      "pattern": "^#([0-9a-fA-F]{6}|[0-9a-fA-F]{8})$"
+    },
+    "fit": {
+      "enum": [
+        "cover",
+        "contain"
+      ]
+    },
+    "background": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "color": {
+          "$ref": "#/$defs/color"
+        },
+        "image": {
+          "$ref": "#/$defs/assetRef"
+        },
+        "fit": {
+          "$ref": "#/$defs/fit"
+        }
+      }
+    },
+    "page": {
+      "type": "object",
+      "required": [
+        "id",
+        "elements"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "name": {
+          "type": "string",
+          "maxLength": 100
+        },
+        "background": {
+          "$ref": "#/$defs/background"
+        },
+        "elements": {
+          "description": "Reihenfolge = Ebene: spätere Elemente liegen oben.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/element"
+          }
+        }
+      }
+    },
+    "action": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": [
+            "type",
+            "video"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "type": {
+              "const": "openVideo"
+            },
+            "video": {
+              "$ref": "#/$defs/assetRef"
+            },
+            "title": {
+              "type": "string",
+              "maxLength": 200
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "type",
+            "page"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "type": {
+              "const": "openPage"
+            },
+            "page": {
+              "$ref": "#/$defs/id"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "type"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "type": {
+              "const": "back"
+            }
+          }
+        }
+      ]
+    },
+    "textStyle": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "fontFamily": {
+          "type": "string",
+          "maxLength": 100
+        },
+        "fontSize": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "fontWeight": {
+          "enum": [
+            400,
+            500,
+            600,
+            700,
+            800
+          ]
+        },
+        "italic": {
+          "type": "boolean"
+        },
+        "color": {
+          "$ref": "#/$defs/color"
+        },
+        "align": {
+          "enum": [
+            "left",
+            "center",
+            "right"
+          ]
+        },
+        "verticalAlign": {
+          "enum": [
+            "top",
+            "middle",
+            "bottom"
+          ]
+        },
+        "lineHeight": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "background": {
+          "$ref": "#/$defs/color"
+        }
+      }
+    },
+    "element": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/text"
+        },
+        {
+          "$ref": "#/$defs/image"
+        },
+        {
+          "$ref": "#/$defs/thumbnail"
+        },
+        {
+          "$ref": "#/$defs/button"
+        },
+        {
+          "$ref": "#/$defs/shape"
+        }
+      ]
+    },
+    "text": {
+      "type": "object",
+      "required": [
+        "id",
+        "type",
+        "x",
+        "y",
+        "w",
+        "h",
+        "text"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "type": {
+          "const": "text"
+        },
+        "x": {
+          "type": "number"
+        },
+        "y": {
+          "type": "number"
+        },
+        "w": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "h": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "rotation": {
+          "type": "number",
+          "default": 0
+        },
+        "opacity": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "default": 1
+        },
+        "radius": {
+          "type": "number",
+          "minimum": 0,
+          "default": 0
+        },
+        "action": {
+          "$ref": "#/$defs/action"
+        },
+        "text": {
+          "type": "string",
+          "maxLength": 5000
+        },
+        "style": {
+          "$ref": "#/$defs/textStyle"
+        }
+      }
+    },
+    "image": {
+      "type": "object",
+      "required": [
+        "id",
+        "type",
+        "x",
+        "y",
+        "w",
+        "h",
+        "image"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "type": {
+          "const": "image"
+        },
+        "x": {
+          "type": "number"
+        },
+        "y": {
+          "type": "number"
+        },
+        "w": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "h": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "rotation": {
+          "type": "number",
+          "default": 0
+        },
+        "opacity": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "default": 1
+        },
+        "radius": {
+          "type": "number",
+          "minimum": 0,
+          "default": 0
+        },
+        "action": {
+          "$ref": "#/$defs/action"
+        },
+        "image": {
+          "$ref": "#/$defs/assetRef"
+        },
+        "fit": {
+          "$ref": "#/$defs/fit"
+        }
+      }
+    },
+    "thumbnail": {
+      "description": "Vorschaubild eines Videos; Klick öffnet die Videoseite.",
+      "type": "object",
+      "required": [
+        "id",
+        "type",
+        "x",
+        "y",
+        "w",
+        "h",
+        "video"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "type": {
+          "const": "thumbnail"
+        },
+        "x": {
+          "type": "number"
+        },
+        "y": {
+          "type": "number"
+        },
+        "w": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "h": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "rotation": {
+          "type": "number",
+          "default": 0
+        },
+        "opacity": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "default": 1
+        },
+        "radius": {
+          "type": "number",
+          "minimum": 0,
+          "default": 0
+        },
+        "action": {
+          "$ref": "#/$defs/action"
+        },
+        "video": {
+          "$ref": "#/$defs/assetRef"
+        },
+        "poster": {
+          "description": "Eigenes Vorschaubild; sonst das automatisch erzeugte Standbild",
+          "$ref": "#/$defs/assetRef"
+        },
+        "title": {
+          "type": "string",
+          "maxLength": 200
+        },
+        "showTitle": {
+          "type": "boolean",
+          "default": false
+        },
+        "showPlayIcon": {
+          "type": "boolean",
+          "default": true
+        },
+        "style": {
+          "$ref": "#/$defs/textStyle"
+        }
+      }
+    },
+    "button": {
+      "type": "object",
+      "required": [
+        "id",
+        "type",
+        "x",
+        "y",
+        "w",
+        "h",
+        "label",
+        "action"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "type": {
+          "const": "button"
+        },
+        "x": {
+          "type": "number"
+        },
+        "y": {
+          "type": "number"
+        },
+        "w": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "h": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "rotation": {
+          "type": "number",
+          "default": 0
+        },
+        "opacity": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "default": 1
+        },
+        "radius": {
+          "type": "number",
+          "minimum": 0,
+          "default": 0
+        },
+        "action": {
+          "$ref": "#/$defs/action"
+        },
+        "label": {
+          "type": "string",
+          "maxLength": 200
+        },
+        "style": {
+          "$ref": "#/$defs/textStyle"
+        }
+      }
+    },
+    "shape": {
+      "description": "Farbfläche (z. B. als Hintergrund eines Bereichs)",
+      "type": "object",
+      "required": [
+        "id",
+        "type",
+        "x",
+        "y",
+        "w",
+        "h",
+        "fill"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "type": {
+          "const": "shape"
+        },
+        "x": {
+          "type": "number"
+        },
+        "y": {
+          "type": "number"
+        },
+        "w": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "h": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "rotation": {
+          "type": "number",
+          "default": 0
+        },
+        "opacity": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "default": 1
+        },
+        "radius": {
+          "type": "number",
+          "minimum": 0,
+          "default": 0
+        },
+        "action": {
+          "$ref": "#/$defs/action"
+        },
+        "fill": {
+          "$ref": "#/$defs/color"
+        }
+      }
+    },
+    "videoPage": {
+      "type": "object",
+      "required": [
+        "header"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "background": {
+          "$ref": "#/$defs/color"
+        },
+        "fit": {
+          "$ref": "#/$defs/fit"
+        },
+        "header": {
+          "type": "object",
+          "required": [
+            "height",
+            "backLabel"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "height": {
+              "type": "number",
+              "minimum": 0
+            },
+            "background": {
+              "$ref": "#/$defs/color"
+            },
+            "color": {
+              "$ref": "#/$defs/color"
+            },
+            "backLabel": {
+              "type": "string",
+              "maxLength": 100
+            },
+            "showTitle": {
+              "type": "boolean",
+              "default": true
+            },
+            "fontSize": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            }
+          }
+        }
+      }
+    }
+  }
+}
