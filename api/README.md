@@ -12,6 +12,18 @@ php bin/migrate.php
 php bin/create-user.php --kunde="Musterfirma" --email=name@firma.de --name="Vorname Nachname"
 ```
 
+Speicher einrichten (CORS für direkte Browser-Uploads von `APP_URL`):
+
+```bash
+php bin/s3-setup.php
+```
+
+Cronjob für die serverseitige SHA-256-Prüfung hochgeladener Dateien (streamt aus dem Speicher, braucht wenig RAM):
+
+```cron
+*/10 * * * * php /pfad/zu/api/bin/verify-files.php --limit=5
+```
+
 Für Entwicklung und Abnahme legt `php bin/seed-dev.php` zwei Testkunden mit Benutzer, Projekt und Start-Entwurf an (nur mit `APP_ENV=development`).
 
 Die `.env` wird aus dem Repo-Hauptordner gelesen (oder aus `PLINTH_ENV_FILE`).
@@ -30,6 +42,23 @@ Auf Apache leitet `api/.htaccess` alle Anfragen auf `public/index.php`; `src/`, 
 | GET | `/api/v1/geraete` | Geräte des Kunden mit Status |
 | PATCH | `/api/v1/geraete/{id}` | `{name?, gesperrt?, projektId?}` |
 | DELETE | `/api/v1/geraete/{id}` | Gerät entfernen (Token wird ungültig) |
+
+### Medien
+
+Der Browser lädt direkt in den Speicher; durch PHP laufen nur kleine JSON-Anfragen.
+
+| Methode | Pfad | Beschreibung |
+|---|---|---|
+| POST | `/api/v1/uploads` | `{name, mime, groesse}` → Datei-ID, `teilGroesse` (≥ 8 MiB), `teileAnzahl` |
+| POST | `/api/v1/uploads/{id}/teile` | `{teile: [1,2,…], pruefsummen?: {"1": "<sha256-base64>"}}` → signierte PUT-URLs (1 h gültig) |
+| GET | `/api/v1/uploads/{id}` | Stand inkl. `fertigeTeile` für die Wiederaufnahme |
+| POST | `/api/v1/uploads/{id}/abschliessen` | `{teile: [{nummer, etag}], sha256}` → prüft die Größe, Status `fertig` |
+| DELETE | `/api/v1/uploads/{id}` | Upload abbrechen |
+| GET | `/api/v1/dateien` | Bibliothek (mit signierter Vorschau-URL) |
+| GET/PATCH/DELETE | `/api/v1/dateien/{id}` | Details; Name, `breite`, `hoehe`, `dauerSekunden`, `vorschauDateiId` |
+
+Erlaubt: JPEG, PNG, WebP, MP4, WebM bis `UPLOAD_MAX_GB`. Werden Prüfsummen pro Teil mitgeschickt, lehnt der Speicher veränderte Teile ab (der Browser muss dann den Header `x-amz-checksum-sha256` senden).
+Großer Ende-zu-Ende-Test gegen eine laufende Installation: `php bin/upload-smoke.php --api=https://host/api --email=… --password=… --gb=2`.
 
 ### Player (Header `Authorization: Bearer <gerätetoken>`)
 
@@ -61,7 +90,7 @@ Codes: `invalid_json` (400), `unauthorized`/`invalid_credentials` (401), `forbid
 | `auth_sessions` | Sitzungen (Token-Hash) |
 | `projekte` | Bildschirm-Projekte eines Kunden (Ausrichtung) |
 | `entwuerfe` | ein Entwurf pro Projekt (Layout-JSON, Version) |
-| `dateien` | Medien im Speicher (Status, SHA-256, Vorschaubild) |
+| `dateien` | Medien im Speicher (Status, SHA-256, Prüfzeitpunkt, Vorschaubild) |
 | `revisionen` | veröffentlichte, unveränderliche Manifeste |
 | `zeitplaene` | Zeitfenster für Revisionen (ab M2) |
 | `geraete` | Player (Token-Hash, gesperrt, geladene Revision) |
@@ -81,8 +110,9 @@ Alle Zeitstempel in UTC.
 
 ## Tests
 
-Benötigen eine eigene, leere MySQL/MariaDB-Datenbank (wird bei jedem Lauf geleert):
+Benötigen eine eigene, leere MySQL/MariaDB-Datenbank (wird bei jedem Lauf geleert) und für die Upload-Tests einen S3-kompatiblen Testspeicher:
 
 ```bash
-TEST_DB_NAME=plinth_test TEST_DB_USER=plinth TEST_DB_PASS=... vendor/bin/phpunit
+pip install "moto[server]" && moto_server -p 5055 &
+TEST_DB_NAME=plinth_test TEST_DB_USER=plinth TEST_DB_PASS=... TEST_S3_ENDPOINT=http://127.0.0.1:5055 vendor/bin/phpunit
 ```

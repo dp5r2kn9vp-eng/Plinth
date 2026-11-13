@@ -6,6 +6,10 @@ namespace Plinth\Api;
 use PDO;
 use Plinth\Api\Auth\AuthController;
 use Plinth\Api\Auth\SessionService;
+use Plinth\Api\Dateien\DateienController;
+use Plinth\Api\Dateien\DateienService;
+use Plinth\Api\Storage\S3Storage;
+use Plinth\Api\Storage\Storage;
 use Plinth\Api\Geraete\GeraeteController;
 use Plinth\Api\Geraete\GeraeteService;
 use Plinth\Api\Kunden\KundenController;
@@ -24,18 +28,29 @@ final class App
     private ?GeraeteController $geraete = null;
     private ?RateLimiter $limiter = null;
 
-    /** @param (\Closure():PDO)|null $dbFactory */
+    private ?Storage $storage = null;
+
+    /**
+     * @param (\Closure():PDO)|null $dbFactory
+     * @param (\Closure():Storage)|null $storageFactory
+     */
     public function __construct(
         private Config $config,
         private Logger $logger,
         private ?\Closure $dbFactory = null,
+        private ?\Closure $storageFactory = null,
     ) {
     }
 
     public static function fromConfig(Config $config): self
     {
         $logPath = $config->get('LOG_PATH', dirname(__DIR__) . '/storage/logs/api.log');
-        return new self($config, new Logger($logPath), fn () => Database::connect($config));
+        return new self(
+            $config,
+            new Logger($logPath),
+            fn () => Database::connect($config),
+            fn () => S3Storage::fromConfig($config),
+        );
     }
 
     public function handle(Request $request): Response
@@ -94,6 +109,18 @@ final class App
         $r->patch("$v/geraete/{id}", $this->user(fn (Request $req) => $this->geraete()->update($req)));
         $r->delete("$v/geraete/{id}", $this->user(fn (Request $req) => $this->geraete()->delete($req)));
 
+        // Medien
+        $d = fn () => new DateienController($this->dateienService());
+        $r->post("$v/uploads", $this->user(fn (Request $req) => $d()->startUpload($req)));
+        $r->get("$v/uploads/{id}", $this->user(fn (Request $req) => $d()->uploadStatus($req)));
+        $r->post("$v/uploads/{id}/teile", $this->user(fn (Request $req) => $d()->teilUrls($req)));
+        $r->post("$v/uploads/{id}/abschliessen", $this->user(fn (Request $req) => $d()->abschliessen($req)));
+        $r->delete("$v/uploads/{id}", $this->user(fn (Request $req) => $d()->abbrechen($req)));
+        $r->get("$v/dateien", $this->user(fn (Request $req) => $d()->index($req)));
+        $r->get("$v/dateien/{id}", $this->user(fn (Request $req) => $d()->show($req)));
+        $r->patch("$v/dateien/{id}", $this->user(fn (Request $req) => $d()->update($req)));
+        $r->delete("$v/dateien/{id}", $this->user(fn (Request $req) => $d()->delete($req)));
+
         // Player (Gerätetoken)
         $r->post("$v/player/registrieren", fn (Request $req) => $this->geraete()->register($req));
         $r->get("$v/player/geraet", fn (Request $req) => $this->geraete()->self($req));
@@ -148,6 +175,26 @@ final class App
             $this->db = ($this->dbFactory)();
         }
         return $this->db;
+    }
+
+    private function storage(): Storage
+    {
+        if ($this->storage === null) {
+            if ($this->storageFactory === null) {
+                throw new \RuntimeException('Kein Speicher konfiguriert.');
+            }
+            $this->storage = ($this->storageFactory)();
+        }
+        return $this->storage;
+    }
+
+    private function dateienService(): DateienService
+    {
+        return new DateienService(
+            $this->db(),
+            $this->storage(),
+            $this->config->int('UPLOAD_MAX_GB', 20) * 1_000_000_000,
+        );
     }
 
     private function limiter(): RateLimiter
