@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<phpunit bootstrap="vendor/autoload.php" colors="true" cacheDirectory=".phpunit.cache">
+    <testsuites>
+        <testsuite name="api">
+            <directory>tests</directory>
+        </testsuite>
+    </testsuites>
+    <php>
+        <!-- Eigene Testdatenbank – wird bei jedem Lauf geleert! -->
+        <env name="TEST_DB_HOST" value="127.0.0.1" force="false"/>
+        <env name="TEST_DB_NAME" value="plinth_test" force="false"/>
+        <env name="TEST_DB_USER" value="plinth" force="false"/>
+        <env name="TEST_DB_PASS" value="" force="false"/>
+    </php>
+</phpunit>
