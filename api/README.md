@@ -12,6 +12,8 @@ php bin/migrate.php
 php bin/create-user.php --kunde="Musterfirma" --email=name@firma.de --name="Vorname Nachname"
 ```
 
+Für Entwicklung und Abnahme legt `php bin/seed-dev.php` zwei Testkunden mit Benutzer, Projekt und Start-Entwurf an (nur mit `APP_ENV=development`).
+
 Die `.env` wird aus dem Repo-Hauptordner gelesen (oder aus `PLINTH_ENV_FILE`).
 Auf Apache leitet `api/.htaccess` alle Anfragen auf `public/index.php`; `src/`, `vendor/` usw. sind nicht direkt abrufbar.
 
@@ -23,6 +25,20 @@ Auf Apache leitet `api/.htaccess` alle Anfragen auf `public/index.php`; `src/`, 
 | POST | `/api/v1/auth/login` | `{email, password, remember}` → setzt Sitzungscookie |
 | POST | `/api/v1/auth/logout` | beendet die Sitzung |
 | GET | `/api/v1/auth/me` | angemeldeter Benutzer, sonst 401 |
+| GET | `/api/v1/kunde` | eigener Kunde inkl. Kundencode (`ABCD-EFGH-JKMN`) |
+| POST | `/api/v1/kunde/kundencode` | neuen Kundencode erzeugen (registrierte Geräte bleiben) |
+| GET | `/api/v1/geraete` | Geräte des Kunden mit Status |
+| PATCH | `/api/v1/geraete/{id}` | `{name?, gesperrt?, projektId?}` |
+| DELETE | `/api/v1/geraete/{id}` | Gerät entfernen (Token wird ungültig) |
+
+### Player (Header `Authorization: Bearer <gerätetoken>`)
+
+| Methode | Pfad | Beschreibung |
+|---|---|---|
+| POST | `/api/v1/player/registrieren` | `{kundencode, name, appVersion}` → `{geraetId, token}` (10 Versuche/15 min pro IP) |
+| GET | `/api/v1/player/geraet` | eigenes Gerät; 401 `device_unknown`, 403 `device_blocked` |
+
+Der Player sendet optional `X-Plinth-Version`. Pro Gerät sind 300 Anfragen in 15 Minuten erlaubt.
 
 ### Fehlerformat
 
@@ -35,6 +51,23 @@ Jeder Fehler hat dieselbe Form; `requestId` steht auch im Header `X-Request-Id` 
 Codes: `invalid_json` (400), `unauthorized`/`invalid_credentials` (401), `forbidden` (403), `not_found` (404),
 `method_not_allowed` (405), `unsupported_media_type` (415), `validation_failed` (422, mit `details.fields`),
 `too_many_requests` (429, mit `Retry-After`), `internal_error` (500).
+
+## Datenbank
+
+| Tabelle | Inhalt |
+|---|---|
+| `kunden` | Kunde, Kundencode, aktiv |
+| `benutzer` | Designer-Benutzer (Argon2id) |
+| `auth_sessions` | Sitzungen (Token-Hash) |
+| `projekte` | Bildschirm-Projekte eines Kunden (Ausrichtung) |
+| `entwuerfe` | ein Entwurf pro Projekt (Layout-JSON, Version) |
+| `dateien` | Medien im Speicher (Status, SHA-256, Vorschaubild) |
+| `revisionen` | veröffentlichte, unveränderliche Manifeste |
+| `zeitplaene` | Zeitfenster für Revisionen (ab M2) |
+| `geraete` | Player (Token-Hash, gesperrt, geladene Revision) |
+| `rate_limits` | Zähler fürs Rate-Limiting |
+
+Alle Zeitstempel in UTC.
 
 ## Sicherheit
 

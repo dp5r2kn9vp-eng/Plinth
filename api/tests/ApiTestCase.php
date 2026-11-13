@@ -41,9 +41,11 @@ abstract class ApiTestCase extends TestCase
 
     protected function setUp(): void
     {
-        foreach (['rate_limits', 'auth_sessions', 'benutzer', 'kunden'] as $table) {
-            self::$db->exec("DELETE FROM {$table}");
+        self::$db->exec('SET FOREIGN_KEY_CHECKS = 0');
+        foreach (self::$db->query('SHOW TABLES')->fetchAll(PDO::FETCH_COLUMN) as $table) {
+            self::$db->exec("DELETE FROM `{$table}`");
         }
+        self::$db->exec('SET FOREIGN_KEY_CHECKS = 1');
         $this->app = new App(self::config(), new Logger(null), fn () => self::$db);
     }
 
@@ -60,10 +62,12 @@ abstract class ApiTestCase extends TestCase
         ]);
     }
 
-    protected function createUser(string $email, string $password, bool $aktiv = true, bool $kundeAktiv = true): int
+    protected function createUser(string $email, string $password, bool $aktiv = true, bool $kundeAktiv = true, ?int $kundeId = null): int
     {
-        self::$db->prepare('INSERT INTO kunden (name, aktiv) VALUES (?, ?)')->execute(['Testkunde', (int) $kundeAktiv]);
-        $kundeId = self::$db->lastInsertId();
+        if ($kundeId === null) {
+            self::$db->prepare('INSERT INTO kunden (name, aktiv) VALUES (?, ?)')->execute(['Testkunde', (int) $kundeAktiv]);
+            $kundeId = (int) self::$db->lastInsertId();
+        }
         self::$db->prepare('INSERT INTO benutzer (kunde_id, email, name, passwort_hash, aktiv) VALUES (?, ?, ?, ?, ?)')
             ->execute([$kundeId, $email, 'Test Benutzer', SessionService::hashPassword($password), (int) $aktiv]);
         return (int) self::$db->lastInsertId();
@@ -94,6 +98,19 @@ abstract class ApiTestCase extends TestCase
             [],
             $ip,
         ));
+    }
+
+    protected static function kundeIdOf(int $userId): int
+    {
+        return (int) self::$db->query("SELECT kunde_id FROM benutzer WHERE id = {$userId}")->fetchColumn();
+    }
+
+    /** Meldet einen neuen Benutzer an und liefert das Sitzungscookie. */
+    protected function loginAs(string $email, ?int $kundeId = null): string
+    {
+        $this->createUser($email, 'passwort-fuer-tests', kundeId: $kundeId);
+        $res = $this->request('POST', '/v1/auth/login', ['email' => $email, 'password' => 'passwort-fuer-tests']);
+        return (string) self::sessionCookie($res);
     }
 
     /** @return array<string,mixed> */

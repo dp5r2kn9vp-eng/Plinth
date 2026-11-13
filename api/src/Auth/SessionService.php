@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace Plinth\Api\Auth;
 
 use PDO;
+use Plinth\Api\Token;
 
 /**
  * Sitzungen der Designer-Benutzer.
@@ -66,7 +67,7 @@ final class SessionService
      */
     public function create(int $userId, bool $remember, string $ip, string $userAgent): array
     {
-        $token = rtrim(strtr(base64_encode(random_bytes(32)), '+/', '-_'), '=');
+        $token = Token::generate();
         $expiresAt = time() + ($remember ? $this->rememberSeconds : $this->ttlSeconds);
 
         $this->db->prepare(
@@ -74,7 +75,7 @@ final class SessionService
              VALUES (:uid, :hash, UTC_TIMESTAMP(), FROM_UNIXTIME(:exp), UTC_TIMESTAMP(), :ip, :ua)'
         )->execute([
             'uid' => $userId,
-            'hash' => hash('sha256', $token),
+            'hash' => Token::hash($token),
             'exp' => $expiresAt,
             'ip' => substr($ip, 0, 45),
             'ua' => mb_substr($userAgent, 0, 255),
@@ -102,7 +103,7 @@ final class SessionService
              JOIN kunden k ON k.id = b.kunde_id
              WHERE s.token_hash = :hash AND s.laeuft_ab_am > UTC_TIMESTAMP() AND b.aktiv = 1 AND k.aktiv = 1'
         );
-        $stmt->execute(['hash' => hash('sha256', $token)]);
+        $stmt->execute(['hash' => Token::hash($token)]);
         $row = $stmt->fetch();
         if ($row === false) {
             return null;
@@ -125,6 +126,6 @@ final class SessionService
     public function destroy(string $token): void
     {
         $this->db->prepare('DELETE FROM auth_sessions WHERE token_hash = :hash')
-            ->execute(['hash' => hash('sha256', $token)]);
+            ->execute(['hash' => Token::hash($token)]);
     }
 }
