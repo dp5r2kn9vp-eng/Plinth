@@ -1,0 +1,40 @@
+{
+  "schemaVersion": 1,
+  "projectId": 1,
+  "revision": 3,
+  "publishedAt": "2026-11-14T10:00:00Z",
+  "isDefault": true,
+  "validFrom": null,
+  "validTo": null,
+  "priority": 0,
+  "layout": {
+    "schemaVersion": 1,
+    "canvas": { "width": 1920, "height": 1080 },
+    "startPage": "home",
+    "idleTimeoutSeconds": 120,
+    "pages": [
+      {
+        "id": "home", "type": "home", "name": "Startseite",
+        "background": { "type": "image", "assetId": "bg1", "fit": "cover" },
+        "elements": [
+          { "id": "t1", "type": "text", "x": 120, "y": 60, "width": 1200, "height": 120, "text": "Willkommen", "fontSize": 84, "fontWeight": "bold", "color": "#ffffff" },
+          { "id": "th1", "type": "thumbnail", "x": 120, "y": 300, "width": 480, "height": 270, "videoAssetId": "v1", "caption": "Produktfilm", "cornerRadius": 16 },
+          { "id": "th2", "type": "thumbnail", "x": 660, "y": 300, "width": 480, "height": 270, "videoAssetId": "v2", "posterAssetId": "p2", "caption": "Referenzen", "cornerRadius": 16 }
+        ]
+      },
+      {
+        "id": "video", "type": "video", "name": "Videoseite",
+        "background": { "type": "color", "color": "#000000" },
+        "header": { "height": 96, "color": "#101820", "title": "", "backLabel": "Zurück" },
+        "videoArea": { "x": 0, "y": 96, "width": 1920, "height": 984 },
+        "elements": []
+      }
+    ]
+  },
+  "files": [
+    { "assetId": "bg1", "kind": "image", "path": "media/bg1.jpg", "size": 482113, "sha256": "0000000000000000000000000000000000000000000000000000000000000000", "mime": "image/jpeg" },
+    { "assetId": "v1",  "kind": "video", "path": "media/v1.mp4",  "size": 2147483648, "sha256": "1111111111111111111111111111111111111111111111111111111111111111", "mime": "video/mp4", "durationSeconds": 183.5 },
+    { "assetId": "v2",  "kind": "video", "path": "media/v2.mp4",  "size": 1073741824, "sha256": "2222222222222222222222222222222222222222222222222222222222222222", "mime": "video/mp4", "durationSeconds": 96 },
+    { "assetId": "p2",  "kind": "image", "path": "media/p2.jpg",  "size": 98213, "sha256": "3333333333333333333333333333333333333333333333333333333333333333", "mime": "image/jpeg" }
+  ]
+}
