@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Anmelden – Plinth Studio</title>
+<style>
+  :root {
+    --bg: #0e1116;
+    --panel: #151a22;
+    --line: #262d38;
+    --text: #e8ecf2;
+    --muted: #8b95a5;
+    --accent: #5ee0c1;
+    --accent-ink: #06231c;
+    --danger: #ff6b6b;
+    --radius: 12px;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    display: grid;
+    grid-template-columns: 1.1fr 1fr;
+  }
+  .brand {
+    position: relative;
+    overflow: hidden;
+    padding: 56px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    background:
+      radial-gradient(900px 500px at 15% 10%, rgba(94,224,193,.16), transparent 60%),
+      radial-gradient(700px 500px at 90% 95%, rgba(94,140,224,.14), transparent 60%),
+      var(--panel);
+    border-right: 1px solid var(--line);
+  }
+  .logo { display: flex; align-items: center; gap: 12px; font-weight: 700; font-size: 22px; letter-spacing: .3px; }
+  .logo-mark { width: 34px; height: 34px; }
+  .logo small { color: var(--muted); font-weight: 500; font-size: 14px; margin-left: 4px; }
+  .pitch h1 { font-size: 40px; line-height: 1.12; margin: 0 0 16px; max-width: 14em; }
+  .pitch p { color: var(--muted); font-size: 17px; line-height: 1.55; max-width: 28em; margin: 0; }
+  .screens { display: flex; gap: 14px; margin-top: 36px; }
+  .screen {
+    width: 150px; aspect-ratio: 16/9; border-radius: 8px;
+    border: 1px solid var(--line); background: #0b0f14; position: relative;
+  }
+  .screen::after { content: ""; position: absolute; left: 10%; right: 10%; bottom: -9px; height: 5px; background: var(--line); border-radius: 0 0 6px 6px; }
+  .screen i { position: absolute; border-radius: 3px; background: rgba(94,224,193,.55); }
+  .foot { color: var(--muted); font-size: 13px; }
+
+  .form-wrap { display: flex; align-items: center; justify-content: center; padding: 32px; }
+  form { width: 100%; max-width: 380px; }
+  form h2 { margin: 0 0 6px; font-size: 26px; }
+  form .sub { margin: 0 0 28px; color: var(--muted); }
+  label { display: block; font-size: 13px; color: var(--muted); margin: 0 0 6px; }
+  .field { margin-bottom: 18px; }
+  input[type=email], input[type=password], input[type=text] {
+    width: 100%; padding: 13px 14px; font-size: 16px; color: var(--text);
+    background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius);
+    outline: none; transition: border-color .15s, box-shadow .15s;
+  }
+  input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(94,224,193,.18); }
+  .pw { position: relative; }
+  .pw button {
+    position: absolute; right: 6px; top: 50%; transform: translateY(-50%);
+    background: none; border: 0; color: var(--muted); font-size: 13px; padding: 8px 10px; cursor: pointer;
+  }
+  .row { display: flex; align-items: center; justify-content: space-between; margin: 4px 0 24px; font-size: 14px; }
+  .row label { display: flex; align-items: center; gap: 8px; margin: 0; color: var(--text); font-size: 14px; }
+  .row a { color: var(--accent); text-decoration: none; }
+  .row a:hover { text-decoration: underline; }
+  .btn {
+    width: 100%; padding: 14px; font-size: 16px; font-weight: 600; cursor: pointer;
+    color: var(--accent-ink); background: var(--accent); border: 0; border-radius: var(--radius);
+    transition: filter .15s, transform .05s;
+  }
+  .btn:hover { filter: brightness(1.06); }
+  .btn:active { transform: translateY(1px); }
+  .btn[disabled] { opacity: .6; cursor: default; }
+  .error {
+    display: none; margin-bottom: 18px; padding: 12px 14px; font-size: 14px;
+    color: var(--danger); background: rgba(255,107,107,.08); border: 1px solid rgba(255,107,107,.35); border-radius: var(--radius);
+  }
+  .error.show { display: block; }
+  .legal { margin-top: 28px; font-size: 12px; color: var(--muted); text-align: center; }
+
+  @media (max-width: 860px) {
+    body { grid-template-columns: 1fr; }
+    .brand { display: none; }
+  }
+</style>
+</head>
+<body>
+  <section class="brand" aria-hidden="true">
+    <div class="logo">
+      <svg class="logo-mark" viewBox="0 0 40 40" fill="none">
+        <rect x="4" y="6" width="32" height="20" rx="3" stroke="#5ee0c1" stroke-width="2.5"/>
+        <path d="M12 34h16M20 26v8" stroke="#5ee0c1" stroke-width="2.5" stroke-linecap="round"/>
+      </svg>
+      Plinth <small>Studio</small>
+    </div>
+    <div class="pitch">
+      <h1>Gestalte, was deine Bildschirme zeigen.</h1>
+      <p>Layouts frei positionieren, Videos hochladen, veröffentlichen – und deine Player aktualisieren sich von selbst.</p>
+      <div class="screens">
+        <div class="screen"><i style="left:8%;top:12%;width:38%;height:34%"></i><i style="left:54%;top:12%;width:38%;height:34%"></i><i style="left:8%;top:56%;width:38%;height:30%"></i><i style="left:54%;top:56%;width:38%;height:30%"></i></div>
+        <div class="screen"><i style="left:8%;top:12%;width:84%;height:20%"></i><i style="left:8%;top:40%;width:84%;height:48%"></i></div>
+      </div>
+    </div>
+    <div class="foot">© Plinth</div>
+  </section>
+
+  <main class="form-wrap">
+    <form id="login" novalidate>
+      <h2>Willkommen zurück</h2>
+      <p class="sub">Melde dich bei Plinth Studio an.</p>
+
+      <div id="error" class="error" role="alert"></div>
+
+      <div class="field">
+        <label for="email">E-Mail</label>
+        <input id="email" name="email" type="email" autocomplete="username" required autofocus>
+      </div>
+      <div class="field">
+        <label for="password">Passwort</label>
+        <div class="pw">
+          <input id="password" name="password" type="password" autocomplete="current-password" required>
+          <button type="button" id="toggle" aria-label="Passwort anzeigen">Anzeigen</button>
+        </div>
+      </div>
+      <div class="row">
+        <label><input type="checkbox" id="remember"> Angemeldet bleiben</label>
+        <a href="/passwort-vergessen">Passwort vergessen?</a>
+      </div>
+      <button class="btn" id="submit" type="submit">Anmelden</button>
+      <p class="legal">Zugang nur für registrierte Kunden.</p>
+    </form>
+  </main>
+
+<script>
+  // API-Basis: gleiche Domain, Pfad /api/v1 (siehe Ticket "PHP-API Grundgerüst")
+  const API = "/api/v1";
+  const form = document.getElementById("login");
+  const err = document.getElementById("error");
+  const btn = document.getElementById("submit");
+  const pw = document.getElementById("password");
+
+  document.getElementById("toggle").addEventListener("click", (e) => {
+    const show = pw.type === "password";
+    pw.type = show ? "text" : "password";
+    e.target.textContent = show ? "Verbergen" : "Anzeigen";
+  });
+
+  function showError(msg) { err.textContent = msg; err.classList.add("show"); }
+
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    err.classList.remove("show");
+    const email = form.email.value.trim();
+    const password = pw.value;
+    if (!email || !password) return showError("Bitte E-Mail und Passwort eingeben.");
+
+    btn.disabled = true; btn.textContent = "Anmelden …";
+    try {
+      const res = await fetch(`${API}/auth/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ email, password, remember: document.getElementById("remember").checked })
+      });
+      if (res.status === 429) throw new Error("Zu viele Versuche. Bitte warte kurz und versuche es erneut.");
+      if (!res.ok) throw new Error("E-Mail oder Passwort ist falsch.");
+      window.location.href = "/studio/";
+    } catch (ex) {
+      showError(ex.message || "Anmeldung nicht möglich. Bitte später erneut versuchen.");
+    } finally {
+      btn.disabled = false; btn.textContent = "Anmelden";
+    }
+  });
+</script>
+</body>
+</html>
