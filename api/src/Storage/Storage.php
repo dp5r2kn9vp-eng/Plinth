@@ -23,6 +23,7 @@ interface Storage
      * Bereits hochgeladene Teile (für die Wiederaufnahme).
      *
      * @return list<array{nummer:int,etag:string,groesse:int}>
+     * @throws UploadNotFound wenn der Speicher den Upload nicht (mehr) kennt
      */
     public function listParts(string $key, string $uploadId): array;
 
