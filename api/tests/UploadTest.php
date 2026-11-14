@@ -87,6 +87,17 @@ final class UploadTest extends ApiTestCase
         self::assertSame(200, $res->status, $res->body);
     }
 
+    public function testPartChecksumsCanBeDisabled(): void
+    {
+        $storage = self::storage();
+        $config = \Plinth\Api\Config::fromArray(['S3_PART_CHECKSUMS' => 'false'] + (fn () => $this->values)->call(self::config()));
+        $this->app = new App($config, new Logger(null), fn () => self::$db, fn () => $storage);
+        $info = self::body($this->studio('POST', '/v1/uploads', ['name' => 'a.png', 'mime' => 'image/png', 'groesse' => 10]));
+        $res = self::body($this->studio('POST', "/v1/uploads/{$info['datei']['id']}/teile", ['teile' => [1], 'pruefsummen' => ['1' => base64_encode(hash('sha256', 'x', true))]]));
+        self::assertFalse($res['pruefsummen']);
+        self::assertStringNotContainsStringIgnoringCase('checksum', $res['urls']['1']);
+    }
+
     public function testResumeListsFinishedParts(): void
     {
         $data = random_bytes(9 * 1024 * 1024);

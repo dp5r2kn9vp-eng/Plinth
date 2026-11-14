@@ -136,8 +136,8 @@ export async function uploadFile(file, { onProgress, signal } = {}) {
       const checksum = await sha256Base64(await blob.arrayBuffer());
       for (let attempt = 1; ; attempt++) {
         try {
-          const { urls } = await post(`/uploads/${id}/teile`, { teile: [n], pruefsummen: { [n]: checksum } });
-          const etag = await putPart(urls[n], blob, checksum, (b) => {
+          const { urls, pruefsummen } = await post(`/uploads/${id}/teile`, { teile: [n], pruefsummen: { [n]: checksum } });
+          const etag = await putPart(urls[n], blob, pruefsummen ? checksum : null, (b) => {
             inFlight.set(n, b);
             report('upload');
           }, signal);

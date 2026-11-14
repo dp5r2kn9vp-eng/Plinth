@@ -30,6 +30,7 @@ final class DateienService
         private PDO $db,
         private Storage $storage,
         private int $maxBytes,
+        private bool $partChecksums = true,
     ) {
     }
 
@@ -107,7 +108,7 @@ final class DateienService
             if ($sum !== null && !preg_match('#^[A-Za-z0-9+/]{43}=$#', $sum)) {
                 throw ApiException::validation(['pruefsummen' => 'SHA-256 als Base64 angeben.']);
             }
-            $urls[(string) $n] = $this->storage->presignUploadPart($row['speicher_schluessel'], $row['upload_id'], $n, self::URL_TTL, $sum);
+            $urls[(string) $n] = $this->storage->presignUploadPart($row['speicher_schluessel'], $row['upload_id'], $n, self::URL_TTL, $this->partChecksums ? $sum : null);
         }
         return $urls;
     }
@@ -116,6 +117,12 @@ final class DateienService
      * @param list<array{nummer:int,etag:string}> $teile
      * @return array<string,mixed>
      */
+    /** Ob Prüfsummen pro Teil in die signierten URLs aufgenommen werden (S3_PART_CHECKSUMS). */
+    public function partChecksums(): bool
+    {
+        return $this->partChecksums;
+    }
+
     public function abschliessen(int $kundeId, int $id, array $teile, string $sha256): array
     {
         $row = $this->uploadRow($kundeId, $id);

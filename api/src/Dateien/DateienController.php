@@ -46,7 +46,11 @@ final class DateienController
         $d = $r->json();
         $nummern = is_array($d['teile'] ?? null) ? array_values($d['teile']) : [];
         $summen = is_array($d['pruefsummen'] ?? null) ? array_filter($d['pruefsummen'], 'is_string') : [];
-        return Response::json(['urls' => $this->dateien->teilUrls(self::kunde($r), self::id($r), $nummern, $summen)]);
+        return Response::json([
+            'urls' => $this->dateien->teilUrls(self::kunde($r), self::id($r), $nummern, $summen),
+            // Nur wenn true, muss der Browser den Header x-amz-checksum-sha256 mitsenden
+            'pruefsummen' => $this->dateien->partChecksums() && $summen !== [],
+        ]);
     }
 
     public function abschliessen(Request $r): Response

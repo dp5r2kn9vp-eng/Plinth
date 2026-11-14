@@ -2,5 +2,7 @@
 # Dadurch sind src/, vendor/, migrations/ usw. nicht direkt abrufbar.
 Options -Indexes
 RewriteEngine On
-RewriteCond %{REQUEST_URI} !/public/index\.php$
+# Feste Basis, damit der Serverpfad des Hosters nie in die URL gerät
+RewriteBase /api/
+RewriteCond %{REQUEST_URI} !/api/public/index\.php$
 RewriteRule ^ public/index.php [L,QSA]

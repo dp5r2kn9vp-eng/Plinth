@@ -1,0 +1,13 @@
+# Plinth – Schutz für den Webroot (wird als .htaccess hochgeladen)
+Options -Indexes
+
+# Keine internen Dateien ausliefern: .env/plinth.env, Markdown, SQL, Composer, Logs
+<FilesMatch "(^\.|\.env$|\.md$|\.sql$|\.lock$|\.log$|^composer\.json$)">
+  Require all denied
+</FilesMatch>
+
+RewriteEngine On
+# Feste Basis, damit Hoster (z. B. all-inkl) nicht den Serverpfad in Weiterleitungen einsetzen
+RewriteBase /
+# Startseite → Studio (absolutes Ziel)
+RewriteRule ^$ /studio/ [R=302,L]

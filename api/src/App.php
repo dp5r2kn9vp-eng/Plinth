@@ -224,6 +224,7 @@ final class App
             $this->db(),
             $this->storage(),
             $this->config->int('UPLOAD_MAX_GB', 20) * 1_000_000_000,
+            $this->config->bool('S3_PART_CHECKSUMS', true),
         );
     }
 
