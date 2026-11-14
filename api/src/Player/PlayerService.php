@@ -40,7 +40,7 @@ final class PlayerService
     /**
      * Manifest plus zeitlich begrenzte Download-Links (Datei-ID => URL).
      *
-     * @return array{manifest:array<string,mixed>,downloads:array<string,string>,gueltigBis:string}|null
+     * @return array{projektId:int,manifest:array<string,mixed>,downloads:array<string,string>,gueltigBis:string}|null
      */
     public function manifest(array $device, ?int $nummer = null): ?array
     {
@@ -68,6 +68,7 @@ final class PlayerService
             }
         }
         return [
+            'projektId' => $projektId,
             'manifest' => $manifest,
             'downloads' => $downloads,
             'gueltigBis' => gmdate('Y-m-d\TH:i:s\Z', time() + $this->downloadTtl),

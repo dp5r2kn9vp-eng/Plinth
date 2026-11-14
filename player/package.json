@@ -1,0 +1,19 @@
+{
+  "name": "plinth-player",
+  "productName": "Plinth Player",
+  "version": "1.0.0",
+  "description": "Plinth Player für Windows-Kiosk-Displays",
+  "main": "src/main.js",
+  "private": true,
+  "author": "Plinth",
+  "license": "UNLICENSED",
+  "scripts": {
+    "start": "electron . --windowed",
+    "watchdog": "electron . --watchdog --windowed",
+    "test": "node --test \"test/*.test.js\"",
+    "test:e2e": "node --test test/e2e/player.e2e.js"
+  },
+  "devDependencies": {
+    "electron": "^33.4.11"
+  }
+}

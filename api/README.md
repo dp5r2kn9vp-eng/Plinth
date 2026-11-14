@@ -82,7 +82,7 @@ Großer Ende-zu-Ende-Test gegen eine laufende Installation: `php bin/upload-smok
 | GET | `/api/v1/player/geraet` | eigenes Gerät; 401 `device_unknown`, 403 `device_blocked` |
 
 | GET | `/api/v1/player/revision` | `{revision, projektId}` mit `ETag`; mit `If-None-Match` → 304 (für Polling alle 30–60 s) |
-| GET | `/api/v1/player/manifest[?revision=n]` | `{manifest, downloads: {dateiId: url}, gueltigBis}`; 404 `no_revision` |
+| GET | `/api/v1/player/manifest[?revision=n]` | `{projektId, manifest, downloads: {dateiId: url}, gueltigBis}`; 404 `no_revision` |
 | POST | `/api/v1/player/status` | `{geladeneRevision}` |
 
 Ein Gerät spielt das ihm zugewiesene Projekt, sonst das erste Projekt des Kunden. Download-Links sind `DOWNLOAD_URL_TTL_HOURS` gültig (Standard 6 h).
