@@ -17,8 +17,9 @@ final class Config
     /**
      * Lädt die Konfigurationsdatei. Gesucht wird (erste vorhandene gewinnt):
      *   1. PLINTH_ENV_FILE (Umgebungsvariable)
-     *   2. plinth.env eine Ebene ÜBER dem Webroot (empfohlen, nie per Web erreichbar)
-     *   3. .env im Webroot (nur mit Schutz durch .htaccess)
+     *   2. config/plinth.env im Webroot (Ordner mit eigener .htaccess, die jeden Zugriff sperrt)
+     *   3. plinth.env eine Ebene über dem Webroot
+     *   4. plinth.env oder .env direkt im Webroot (nur durch die Webroot-.htaccess geschützt)
      * Echte Umgebungsvariablen haben Vorrang vor Werten aus der Datei.
      */
     public static function load(?string $envFile = null): self
@@ -49,8 +50,9 @@ final class Config
     public static function diagnose(): array
     {
         $places = [
+            'Ordner config' => dirname(__DIR__, 2) . '/config',
+            'Webroot' => dirname(__DIR__, 2),
             'über dem Webroot' => dirname(__DIR__, 3),
-            'im Webroot' => dirname(__DIR__, 2),
         ];
         $out = [];
         foreach ($places as $label => $dir) {
@@ -69,18 +71,20 @@ final class Config
             }
         }
         if ($out === []) {
-            $out[] = ['ort' => 'über dem Webroot und im Webroot', 'status' => 'keine plinth.env gefunden'];
+            $out[] = ['ort' => 'config/, Webroot und darüber', 'status' => 'keine plinth.env gefunden'];
         }
         return $out;
     }
 
     private static function findEnvFile(): ?string
     {
+        $root = dirname(__DIR__, 2); // Webroot (Ordner mit api/, studio/, …)
         $candidates = [
             getenv('PLINTH_ENV_FILE') ?: null,
-            dirname(__DIR__, 3) . '/plinth.env',   // über dem Webroot (empfohlen)
-            dirname(__DIR__, 2) . '/plinth.env',   // im Webroot (durch .htaccess gesperrt)
-            dirname(__DIR__, 2) . '/.env',
+            $root . '/config/plinth.env',          // Standard: eigener, gesperrter Ordner im Webroot
+            dirname($root) . '/plinth.env',        // alternativ über dem Webroot
+            $root . '/plinth.env',                 // im Webroot (durch .htaccess gesperrt)
+            $root . '/.env',
         ];
         foreach ($candidates as $file) {
             if ($file !== null && is_file($file)) {

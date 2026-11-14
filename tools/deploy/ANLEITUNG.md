@@ -4,17 +4,23 @@ Für `https://plinth.klangniveau.de`. Alles funktioniert **ohne SSH** – nur mi
 
 ## Inhalt des Pakets
 
-| Datei/Ordner | Wohin | Zweck |
-|---|---|---|
-| `.htaccess`, `index.html` | Webroot | Schutz interner Dateien, Weiterleitung aufs Studio |
-| `api/`, `studio/`, `shared/` | Webroot | Backend (inkl. `vendor/`), Designer, Renderer |
-| `pruefung.php` | Webroot | Prüfseite + ersten Benutzer anlegen (nur mit Schlüssel) |
-| `cron.php` | Webroot | Dateiprüfung für den Cronjob (nur mit Schlüssel) |
-| `plinth.env.vorlage` | ausfüllen → als **`plinth.env` eine Ebene über dem Webroot** | Zugangsdaten |
-| `datenbank.sql` | in phpMyAdmin importieren, **nicht** hochladen | Datenbankschema |
+Alles kommt in den Ordner, auf den die Subdomain zeigt – bei dir **`Plinth`**. Der Inhalt des ZIP entspricht genau diesem Ordner:
 
-**Webroot** = der Ordner, auf den die Domain zeigt. Bei all-inkl z. B. `/www/htdocs/w00c6bb6/plinth/` (KAS → Domain → „Ziel/Pfad“).
-**Eine Ebene darüber** = dann `/www/htdocs/w00c6bb6/` → dort liegt `plinth.env`.
+```text
+Plinth/                      ← Ziel der Subdomain plinth.klangniveau.de
+├── .htaccess                  Schutz interner Dateien, Weiterleitung aufs Studio
+├── index.html
+├── pruefung.php               Prüfseite + ersten Benutzer anlegen (nur mit Schlüssel)
+├── cron.php                   Dateiprüfung für den Cronjob (nur mit Schlüssel)
+├── config/
+│   ├── .htaccess              sperrt den Ordner komplett
+│   ├── plinth.env.vorlage     Vorlage
+│   └── plinth.env             ← legst du an (Zugangsdaten)
+├── api/
+├── studio/
+├── shared/
+└── NICHT-HOCHLADEN/           bleibt auf deinem Rechner: ANLEITUNG.md, datenbank.sql
+```
 
 ## 1. Cloudflare R2
 
@@ -35,11 +41,11 @@ Falls noch nicht geschehen (Details: Bucket `plinth-medien`, Location EU, öffen
 ## 3. Datenbank
 
 - Neue Datenbank anlegen (KAS → Datenbanken → Neue Datenbank). Name, Benutzer und Passwort notieren.
-- **phpMyAdmin** öffnen (Link in der Datenbankliste) → Datenbank links auswählen → **Importieren** → `datenbank.sql` → OK.
+- **phpMyAdmin** öffnen (Link in der Datenbankliste) → Datenbank links auswählen → **Importieren** → `NICHT-HOCHLADEN/datenbank.sql` → OK.
 
-## 4. `plinth.env` anlegen
+## 4. `config/plinth.env` anlegen
 
-`plinth.env.vorlage` kopieren, als **`plinth.env`** speichern und ausfüllen:
+Im Ordner `config` die Datei `plinth.env.vorlage` kopieren, als **`plinth.env`** speichern (Windows: darauf achten, dass sie nicht `plinth.env.txt` heißt) und ausfüllen:
 
 ```ini
 APP_URL=https://plinth.klangniveau.de
@@ -67,12 +73,12 @@ CHECK_TOKEN=…
 CRON_TOKEN=…
 ```
 
-Per FTP **eine Ebene über dem Webroot** ablegen (all-inkl: `/www/htdocs/w00c6bb6/plinth.env`).
+Sie liegt dann in `Plinth/config/plinth.env`. Der Ordner `config` ist durch seine eigene `.htaccess` für Besucher komplett gesperrt.
 
 ## 5. Hochladen
 
-Per FTP in den Webroot: `.htaccess`, `index.html`, `pruefung.php`, `cron.php`, `api/`, `studio/`, `shared/`.
-Im FTP-Programm „versteckte Dateien anzeigen“ einschalten, damit `.htaccess` und `api/.htaccess` mitkommen. Bestehende Dateien **überschreiben**.
+Per FTP alles aus dem ZIP **außer `NICHT-HOCHLADEN`** direkt in den Ordner `Plinth` laden – ohne Zwischenordner (also `Plinth/api/…`, nicht `Plinth/plinth-ftp/api/…`).
+Im FTP-Programm „versteckte Dateien anzeigen“ einschalten, damit `.htaccess`, `config/.htaccess` und `api/.htaccess` mitkommen. Bestehende Dateien **überschreiben**, `config/plinth.env` nicht.
 
 ## 6. Prüfen und ersten Benutzer anlegen – im Browser
 
@@ -96,7 +102,7 @@ all-inkl: KAS → Tools → Cronjobs → Neuer Cronjob
 ## 8. Testen
 
 1. `https://plinth.klangniveau.de/` → Studio-Anmeldung (nicht auf einen Serverpfad wie `/www/htdocs/…`)
-2. `https://plinth.klangniveau.de/plinth.env` und `/.env` → **nicht** abrufbar
+2. `https://plinth.klangniveau.de/config/plinth.env` → **nicht** abrufbar (403)
 3. Im Studio anmelden, Video hochladen, einfügen, **Veröffentlichen**
 4. Player installieren (`PlinthSetup-x.y.z.exe`), Kundencode eingeben → Inhalt erscheint
 
@@ -104,7 +110,7 @@ all-inkl: KAS → Tools → Cronjobs → Neuer Cronjob
 
 ## Updates
 
-Neues Paket hochladen (alles außer `plinth.env` überschreiben). Bringt ein Update neue Tabellen mit, steht das in den Versionshinweisen; die Prüfseite meldet dann „Tabellen“ rot.
+Neues Paket hochladen (alles überschreiben außer `config/plinth.env`). Bringt ein Update neue Tabellen mit, steht das in den Versionshinweisen; die Prüfseite meldet dann „Tabellen“ rot.
 
 ## Mit SSH (optional)
 

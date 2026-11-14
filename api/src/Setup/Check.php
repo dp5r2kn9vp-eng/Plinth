@@ -32,9 +32,13 @@ final class Check
 
         $config = Config::load();
         $found = Config::envFile();
-        $this->add($found !== null, 'Konfigurationsdatei: ' . ($found ?? 'nicht gefunden'), 'plinth.env eine Ebene über dem Webroot anlegen (Vorlage: plinth.env.vorlage).');
-        if ($found !== null && str_ends_with($found, '/.env')) {
-            $this->note('.env liegt im Webroot – nur durch .htaccess geschützt. Besser: als plinth.env eine Ebene höher ablegen.');
+        $root = dirname(__DIR__, 3);
+        $this->add($found !== null, 'Konfigurationsdatei: ' . ($found !== null ? str_replace($root . '/', '', $found) : 'nicht gefunden'), 'config/plinth.env anlegen (Vorlage: config/plinth.env.vorlage).');
+        if ($found !== null && dirname($found) === $root) {
+            $this->note('Die Konfiguration liegt direkt im Webroot – besser nach config/plinth.env verschieben (doppelt gesperrt).');
+        }
+        if ($found !== null && str_starts_with($found, $root . '/config/')) {
+            $this->add(is_file($root . '/config/.htaccess'), 'Ordner config/ gesperrt (.htaccess vorhanden)', 'Datei config/.htaccess mit hochladen (versteckte Dateien im FTP-Programm anzeigen).');
         }
         foreach (['APP_URL', 'DB_NAME', 'DB_USER', 'S3_ENDPOINT', 'S3_BUCKET', 'S3_KEY', 'S3_SECRET'] as $key) {
             $this->add($config->get($key) !== null, "{$key} gesetzt", "{$key} in plinth.env eintragen.");
@@ -51,7 +55,7 @@ final class Check
             $this->add(in_array('geraete', $tables, true), 'Tabellen angelegt (' . count($tables) . ')', 'datenbank.sql in phpMyAdmin importieren (oder php api/bin/migrate.php).');
             if (in_array('benutzer', $tables, true)) {
                 $n = (int) $db->query('SELECT COUNT(*) FROM benutzer')->fetchColumn();
-                $this->add($n > 0, "Benutzer vorhanden ({$n})", 'Ersten Benutzer anlegen (siehe Anleitung, Schritt 5).');
+                $this->add($n > 0, "Benutzer vorhanden ({$n})", 'Ersten Benutzer im Formular unten auf der Prüfseite anlegen (oder per bin/create-user.php).');
             }
         } catch (Throwable $e) {
             $this->add(false, 'Datenbankverbindung', self::short($e));

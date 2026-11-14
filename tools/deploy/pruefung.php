@@ -29,7 +29,7 @@ if (strlen($expected) < 20) {
     $raw = $found !== null ? (string) @file_get_contents($found) : '';
     $hasLine = (bool) preg_match('/^\s*CHECK_TOKEN\s*=/m', $raw);
     $reason = match (true) {
-        $found === null => 'Es wurde keine Konfigurationsdatei gefunden.',
+        $found === null => 'Es wurde keine Konfigurationsdatei gefunden (erwartet: config/plinth.env).',
         !$hasLine => 'Die Konfigurationsdatei wurde gefunden, enthält aber keine Zeile „CHECK_TOKEN=…“.',
         default => 'Die Zeile „CHECK_TOKEN=…“ ist da, der Wert hat aber nur ' . strlen($expected) . ' Zeichen (mindestens 20 nötig, ohne Leerzeichen und Anführungszeichen).',
     };
@@ -40,7 +40,7 @@ if (strlen($expected) < 20) {
         echo '<li>' . htmlspecialchars($d['ort']) . ': ' . htmlspecialchars($d['status']) . '</li>';
     }
     echo '</ul><p>So muss die Zeile in der <code>plinth.env</code> aussehen (eigene Zeile, ohne Leerzeichen):<br><code>CHECK_TOKEN=PUApvLpFKEai1qYua7rqddrk7Mh5oAdE</code></p>';
-    echo '<p>„Über dem Webroot“ heißt: neben dem Ordner, in dem <code>pruefung.php</code> liegt – nicht darin.</p></body>';
+    echo '<p>Richtiger Ort: <code>config/plinth.env</code> – also im Ordner <code>config</code> neben <code>pruefung.php</code>.</p></body>';
     exit;
 }
 if (!hash_equals($expected, $given)) {
