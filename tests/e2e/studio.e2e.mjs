@@ -5,7 +5,7 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
-import { writeFileSync, mkdtempSync } from 'node:fs';
+import { writeFileSync, mkdtempSync, copyFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -13,7 +13,15 @@ const { chromium } = createRequire(import.meta.url)('playwright');
 const BASE = process.env.PLINTH_URL ?? 'http://localhost:8099';
 const EMAIL = process.env.PLINTH_EMAIL ?? 'praxis@plinth.test';
 const PASSWORD = process.env.PLINTH_PASSWORD ?? 'Demo-Passwort-2026';
-const MEDIA = process.env.MEDIA_DIR;
+const MEDIA = process.env.MEDIA_DIR ?? new URL('../fixtures', import.meta.url).pathname;
+
+// Testmedien pro Lauf eindeutig benennen, damit Ergebnisse früherer Läufe nicht stören
+const RUN = Date.now().toString(36);
+const FILM = `film-${RUN}.webm`;
+const BG = `hintergrund-${RUN}.jpg`;
+const runMedia = mkdtempSync(join(tmpdir(), 'plinth-media-'));
+copyFileSync(join(MEDIA, 'film.webm'), join(runMedia, FILM));
+copyFileSync(join(MEDIA, 'hintergrund.jpg'), join(runMedia, BG));
 
 let browser;
 before(async () => {
@@ -50,9 +58,12 @@ async function freshProject(page, ausrichtung = 'landscape') {
 
 async function ensureMedia(page) {
   const { dateien } = await api(page, 'GET', '/dateien');
-  if (dateien.some((d) => d.name === 'film.webm') && dateien.some((d) => d.name === 'hintergrund.jpg')) return;
-  await page.setInputFiles('.library input[type=file]', [join(MEDIA, 'film.webm'), join(MEDIA, 'hintergrund.jpg')]);
-  await page.waitForFunction(() => document.querySelectorAll('.lib-item').length >= 2 && !document.querySelector('.job'), null, { timeout: 60000 });
+  if (dateien.some((d) => d.name === FILM) && dateien.some((d) => d.name === BG)) return;
+  await page.setInputFiles('.library input[type=file]', [join(runMedia, FILM), join(runMedia, BG)]);
+  await page.waitForFunction(([a, b]) => {
+    const names = [...document.querySelectorAll('.lib-name')].map((n) => n.textContent);
+    return names.includes(a) && names.includes(b) && !document.querySelector('.job');
+  }, [FILM, BG], { timeout: 60000 });
 }
 
 test('Login-Seite zeigt Fehler bei falschem Passwort', async () => {
@@ -83,14 +94,14 @@ test('Gestalten, Autosave, Rückgängig, Vorschau und Veröffentlichen', { skip:
 
   // Upload hat Standbild und Abmessungen erzeugt
   const { dateien } = await api(page, 'GET', '/dateien');
-  const film = dateien.find((d) => d.name === 'film.webm');
+  const film = dateien.find((d) => d.name === FILM);
   assert.ok(film.vorschauDateiId, 'Standbild erzeugt');
-  assert.equal(film.breite, 1280);
-  assert.ok(film.dauerSekunden > 5);
+  assert.equal(film.breite, 640);
+  assert.ok(film.dauerSekunden > 3);
 
   // Hintergrundbild, Video-Thumbnail, Text
-  await page.locator('.inspector label.field:has-text("Bild") select').selectOption({ label: 'hintergrund.jpg' });
-  await page.locator('.lib-item', { hasText: 'film.webm' }).getByRole('button', { name: 'Einfügen' }).click();
+  await page.locator('.inspector label.field:has-text("Bild") select').selectOption({ label: BG });
+  await page.locator('.lib-item', { hasText: FILM }).getByRole('button', { name: 'Einfügen' }).click();
   await page.getByRole('button', { name: 'Text', exact: true }).click();
   await page.locator('.inspector textarea').fill('Herzlich willkommen');
 

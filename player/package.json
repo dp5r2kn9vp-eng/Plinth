@@ -11,9 +11,45 @@
     "start": "electron . --windowed",
     "watchdog": "electron . --watchdog --windowed",
     "test": "node --test \"test/*.test.js\"",
-    "test:e2e": "node --test test/e2e/player.e2e.js"
+    "test:e2e": "node --test test/e2e/player.e2e.js",
+    "dist:win": "electron-builder --win --dir"
   },
   "devDependencies": {
-    "electron": "^33.4.11"
+    "electron": "^33.4.11",
+    "electron-builder": "^25.1.8",
+    "playwright": "1.63.0"
+  },
+  "build": {
+    "appId": "de.klangniveau.plinth.player",
+    "productName": "Plinth",
+    "copyright": "Plinth",
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "files": [
+      "src/**/*",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "../shared",
+        "to": "shared",
+        "filter": [
+          "renderer/**/*",
+          "schemas/**/*"
+        ]
+      }
+    ],
+    "asar": true,
+    "win": {
+      "target": "dir",
+      "icon": "build/icon.ico",
+      "executableName": "Plinth"
+    },
+    "linux": {
+      "target": "dir",
+      "executableName": "plinth"
+    }
   }
 }

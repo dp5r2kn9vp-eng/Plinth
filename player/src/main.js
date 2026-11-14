@@ -134,7 +134,7 @@ function runPlayer() {
     const file = path.join(DATA, 'provision.json');
     let p;
     try {
-      p = JSON.parse(fs.readFileSync(file, 'utf8'));
+      p = JSON.parse(fs.readFileSync(file, 'utf8').replace(/^\uFEFF/, ''));
     } catch {
       return false;
     }

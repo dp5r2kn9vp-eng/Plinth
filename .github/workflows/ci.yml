@@ -1,0 +1,122 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  tests:
+    name: API, Studio und Player testen
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    services:
+      mariadb:
+        image: mariadb:10.11
+        env:
+          MARIADB_ROOT_PASSWORD: root
+        ports: ['3306:3306']
+        options: >-
+          --health-cmd="healthcheck.sh --connect --innodb_initialized"
+          --health-interval=5s --health-timeout=5s --health-retries=24
+    env:
+      PLINTH_ENV_FILE: ${{ github.workspace }}/ci.env
+      PLINTH_URL: http://127.0.0.1:8099
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: pdo_mysql, sodium
+          tools: composer
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Datenbanken anlegen
+        run: |
+          mysql -h127.0.0.1 -uroot -proot -e "
+            CREATE DATABASE plinth CHARACTER SET utf8mb4;
+            CREATE DATABASE plinth_test CHARACTER SET utf8mb4;
+            CREATE USER 'plinth'@'%' IDENTIFIED BY 'plinth';
+            GRANT ALL ON plinth.* TO 'plinth'@'%';
+            GRANT ALL ON plinth_test.* TO 'plinth'@'%';"
+
+      - name: S3-Emulator starten (moto)
+        run: |
+          pip install --quiet "moto[server]"
+          moto_server -p 5055 > moto.log 2>&1 &
+
+      - name: Composer
+        working-directory: api
+        run: composer install --no-interaction --no-progress
+
+      - name: PHPUnit
+        working-directory: api
+        env:
+          TEST_DB_PASS: plinth
+          TEST_S3_ENDPOINT: http://127.0.0.1:5055
+        run: vendor/bin/phpunit
+
+      - name: Testinstallation starten (API + Studio)
+        run: |
+          cat > ci.env <<'ENV'
+          APP_URL=http://127.0.0.1:8099
+          APP_ENV=development
+          DB_HOST=127.0.0.1
+          DB_NAME=plinth
+          DB_USER=plinth
+          DB_PASS=plinth
+          SESSION_COOKIE_SECURE=false
+          S3_ENDPOINT=http://127.0.0.1:5055
+          S3_REGION=us-east-1
+          S3_BUCKET=plinth-ci
+          S3_KEY=test
+          S3_SECRET=test
+          ENV
+          php api/bin/migrate.php
+          php api/bin/seed-dev.php
+          php api/bin/s3-setup.php --create-bucket
+          php -S 127.0.0.1:8099 tools/dev-server/router.php > server.log 2>&1 &
+          sleep 1
+          curl -fsS "$PLINTH_URL/api/v1/health"
+
+      - name: Player – Unit- und Integrationstests
+        working-directory: player
+        run: |
+          npm ci
+          npm test
+
+      - name: Studio – Ende-zu-Ende (Playwright)
+        working-directory: tests
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
+          npm run e2e
+
+      - name: Player – Ende-zu-Ende (Electron unter Xvfb)
+        working-directory: player
+        run: xvfb-run -a npm run test:e2e
+
+      - name: Protokolle bei Fehlern
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: logs
+          path: |
+            server.log
+            moto.log
+            api/storage/logs/

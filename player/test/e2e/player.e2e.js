@@ -1,6 +1,6 @@
 'use strict';
 // Ende-zu-Ende-Tests des Electron-Players gegen eine laufende Installation.
-// xvfb-run -a env PLINTH_URL=http://localhost:8099 MEDIA_DIR=/pfad/mit/film.mp4 node --test test/e2e/player.e2e.js
+// xvfb-run -a env PLINTH_URL=http://localhost:8099 node --test test/e2e/player.e2e.js   (Testmedien: tests/fixtures)
 const { test, before, after } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
@@ -10,10 +10,12 @@ const { spawn } = require('node:child_process');
 const { _electron: electron } = require('playwright');
 const { Studio, BASE } = require('../helpers');
 
-const skip = (!BASE || !process.env.MEDIA_DIR) && 'PLINTH_URL/MEDIA_DIR nicht gesetzt';
+const skip = !BASE && 'PLINTH_URL nicht gesetzt';
+const MEDIA = process.env.MEDIA_DIR ?? path.join(__dirname, '..', '..', '..', 'tests', 'fixtures');
 const APP = path.join(__dirname, '..', '..');
 const ELECTRON = require('electron');
-const sandboxArgs = process.getuid?.() === 0 ? ['--no-sandbox'] : [];
+// In Containern/CI fehlt oft die Chromium-Sandbox (root, AppArmor) – nur für Tests abschalten
+const sandboxArgs = ['--no-sandbox'];
 
 let studio, projekt, kundencode, film, dataDir, app, page;
 const DEVICE = `E2E-Player-${Date.now()}`;
@@ -43,7 +45,7 @@ before(async () => {
   studio = new Studio();
   await studio.login();
   projekt = await studio.project(`Player-E2E ${Date.now()}`);
-  film = await studio.upload('film.mp4', 'video/mp4', fs.readFileSync(path.join(process.env.MEDIA_DIR, 'film.mp4')));
+  film = await studio.upload('film.mp4', 'video/mp4', fs.readFileSync(path.join(MEDIA, 'film.mp4')));
   await publishLayout((l) => {
     l.idleTimeoutSeconds = 0;
     l.pages[0].elements.push(

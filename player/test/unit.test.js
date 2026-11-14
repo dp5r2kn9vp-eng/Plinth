@@ -94,6 +94,13 @@ test('Log rotiert bei 5 MB', () => {
   assert.equal(log.recent.length, 1);
 });
 
+test('JSON mit UTF-8-BOM wird gelesen (Installer)', () => {
+  const { readJson } = require('../src/fsutil');
+  const f = path.join(tmp(), 'p.json');
+  fs.writeFileSync(f, '\uFEFF{"name":"Foyer Süd"}', 'utf8');
+  assert.deepEqual(readJson(f), { name: 'Foyer Süd' });
+});
+
 test('Atomares Schreiben hinterlässt keine Temp-Dateien', () => {
   const dir = tmp();
   writeAtomic(path.join(dir, 'a.json'), '{}');
