@@ -1,0 +1,37 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://plinth.klangniveau.de/schemas/manifest.schema.json",
+  "title": "Plinth Manifest",
+  "description": "Unveränderlicher Stand einer Veröffentlichung. Der Player lädt alle files[] und schaltet erst um, wenn alles vollständig und per SHA-256 geprüft ist.",
+  "type": "object",
+  "required": ["schemaVersion", "projectId", "revision", "publishedAt", "layout", "files"],
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "projectId": { "type": "integer", "minimum": 1 },
+    "revision": { "type": "integer", "minimum": 1, "description": "pro Projekt fortlaufend" },
+    "publishedAt": { "type": "string", "format": "date-time" },
+    "isDefault": { "type": "boolean", "default": true, "description": "Standard-Manifest; gilt, wenn kein zeitgesteuertes aktiv ist" },
+    "validFrom": { "type": ["string", "null"], "format": "date-time" },
+    "validTo":   { "type": ["string", "null"], "format": "date-time" },
+    "priority": { "type": "integer", "default": 0, "description": "bei mehreren aktiven Manifesten gewinnt der höhere Wert" },
+    "layout": { "$ref": "layout.schema.json" },
+    "files": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["assetId", "kind", "path", "size", "sha256"],
+        "additionalProperties": false,
+        "properties": {
+          "assetId": { "type": "string", "pattern": "^[A-Za-z0-9_-]{1,64}$" },
+          "kind": { "enum": ["video", "image"] },
+          "path": { "type": "string", "description": "relativer Zielpfad im lokalen Player-Speicher, z. B. media/<assetId>.mp4" },
+          "size": { "type": "integer", "minimum": 0 },
+          "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+          "mime": { "type": "string" },
+          "durationSeconds": { "type": "number", "minimum": 0 }
+        }
+      }
+    }
+  }
+}
