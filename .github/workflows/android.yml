@@ -1,0 +1,94 @@
+name: Android-Build
+
+# Baut den Android-Player (APK), testet den Kern (Kotlin) und das Zusammenspiel mit Plinth Studio (Node).
+# Bei Tags v* wird die APK an das GitHub-Release gehängt.
+# Signatur: Sind die Secrets PLINTH_ANDROID_KEYSTORE (Base64), PLINTH_ANDROID_KEYSTORE_PASSWORD,
+# PLINTH_ANDROID_KEY_ALIAS und PLINTH_ANDROID_KEY_PASSWORD gesetzt, wird damit signiert, sonst mit einem Testschlüssel.
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+concurrency:
+  group: android-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Android-Player bauen und testen
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Version bestimmen
+        id: v
+        run: |
+          if [ "${{ github.ref_type }}" = "tag" ]; then v="${GITHUB_REF_NAME#v}"; else v=$(node -p "require('./player/package.json').version"); fi
+          echo "version=$v" >> "$GITHUB_OUTPUT"
+
+      - name: Signaturschlüssel (falls hinterlegt)
+        env:
+          KEYSTORE: ${{ secrets.PLINTH_ANDROID_KEYSTORE }}
+        run: |
+          if [ -n "$KEYSTORE" ]; then
+            echo "$KEYSTORE" | base64 -d > "$RUNNER_TEMP/plinth.keystore"
+            echo "PLINTH_KEYSTORE=$RUNNER_TEMP/plinth.keystore" >> "$GITHUB_ENV"
+          else
+            echo "::warning::Kein Release-Schlüssel hinterlegt – APK ist mit einem Testschlüssel signiert (Updates nur innerhalb dieses Schlüssels)."
+          fi
+
+      - name: Kern testen und bauen
+        working-directory: android
+        run: ./gradlew --no-daemon :core:test :core:installDist
+
+      - name: Zusammenspiel mit Plinth Studio (Interop)
+        run: |
+          (cd studio-desktop && npm ci)
+          node --test android/test/interop.test.js
+
+      - name: APK bauen und prüfen (Lint)
+        working-directory: android
+        env:
+          PLINTH_KEYSTORE_PASSWORD: ${{ secrets.PLINTH_ANDROID_KEYSTORE_PASSWORD }}
+          PLINTH_KEY_ALIAS: ${{ secrets.PLINTH_ANDROID_KEY_ALIAS }}
+          PLINTH_KEY_PASSWORD: ${{ secrets.PLINTH_ANDROID_KEY_PASSWORD }}
+        run: |
+          ./gradlew --no-daemon :app:assembleRelease :app:lintRelease -PplinthVersion=${{ steps.v.outputs.version }}
+          mkdir -p ../dist
+          cp app/build/outputs/apk/release/app-release.apk ../dist/PlinthPlayer-${{ steps.v.outputs.version }}.apk
+          "$ANDROID_HOME/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -1)/apksigner" verify --print-certs ../dist/PlinthPlayer-*.apk | head -3
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: PlinthPlayer-Android-${{ steps.v.outputs.version }}
+          path: dist/PlinthPlayer-*.apk
+
+      - name: Lint-Bericht bei Fehlern
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-lint
+          path: android/app/build/reports/lint-results-*.html
+
+      - name: An Release anhängen
+        if: github.ref_type == 'tag'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1 || gh release create "$GITHUB_REF_NAME" --title "Plinth $GITHUB_REF_NAME" --generate-notes || true
+          gh release upload "$GITHUB_REF_NAME" dist/PlinthPlayer-*.apk --clobber

@@ -1,12 +1,12 @@
 # Offline-Betrieb (ohne Server)
 
-Stand 14.11.2026. Plinth läuft komplett ohne Cloud: **Plinth Studio Desktop** (Windows, macOS) gestaltet und schickt die Inhalte im lokalen Netz direkt an die **Player** (Windows; Android folgt mit demselben Protokoll).
+Stand 14.11.2026. Plinth läuft komplett ohne Cloud: **Plinth Studio Desktop** (Windows, macOS) gestaltet und schickt die Inhalte im lokalen Netz direkt an die **Player** (Windows und Android, gleiches Protokoll).
 
 Lizenzprüfung (M5, #68–#82) ist bewusst noch **nicht** enthalten; sie setzt später auf dieses Protokoll auf (Projektschlüssel, signierte Pakete, HTTPS mit Fingerprint).
 
 ## Einrichtung
 
-1. **Player installieren:** `PlinthSetup-x.y.z.exe` ausführen – ohne Parameter. Der Installer richtet Autostart (mit Watchdog), Kiosk-Energieoptionen, Update-Nutzungszeit und die Firewall-Freigabe ein. Der Player startet danach von selbst im Offline-Betrieb und zeigt einen **6-stelligen Kopplungscode** und seine IP-Adresse. Keine Eingabe am Player nötig.
+1. **Player installieren:** Android: `PlinthPlayer-x.y.z.apk` installieren und starten, einmal „Startbildschirm-App“ bestätigen (Details und voller Kiosk: [`android/README.md`](../android/README.md)). Windows: `PlinthSetup-x.y.z.exe` ausführen – ohne Parameter. Der Installer richtet Autostart (mit Watchdog), Kiosk-Energieoptionen, Update-Nutzungszeit und die Firewall-Freigabe ein. Der Player startet danach von selbst im Offline-Betrieb und zeigt einen **6-stelligen Kopplungscode** und seine IP-Adresse. Keine Eingabe am Player nötig.
 2. **Studio installieren:** `PlinthStudioSetup-x.y.z.exe` (Windows) bzw. `PlinthStudio-x.y.z-mac.dmg` (macOS). Darf auch auf dem Player-PC selbst laufen.
 3. Im Studio unter **Geräte**: gefundene Player erscheinen automatisch → **Koppeln** → Kopplungscode eingeben. Ohne Fund (Netze ohne Broadcast): **Player per Adresse koppeln**.
 4. **Wartungs-PIN** unter Geräte festlegen; sie wird an alle Player übertragen. Bis dahin gilt am Player der Kopplungscode als PIN.
@@ -35,7 +35,7 @@ Auto-Login des Windows-Kontos bleibt eine Entscheidung des Betreibers (siehe `ki
 
 ## Protokoll (Version 1)
 
-Der Player lauscht auf **TCP 47800** (HTTP, JSON) und **UDP 47801** (Suche). Gegenstück im Code: `player/src/offline.js` (Player) und `studio-desktop/src/players.js` (Studio). Ein Android-Player muss genau das umsetzen.
+Der Player lauscht auf **TCP 47800** (HTTP, JSON) und **UDP 47801** (Suche). Umsetzungen: `player/src/offline.js` (Windows-Player), `android/core/…/PlayerCore.kt` (Android-Player) und `studio-desktop/src/players.js` (Studio). `android/test/interop.test.js` prüft Studio gegen den Android-Kern.
 
 **Suche:** Das Studio schickt `PLINTH-SUCHE` per UDP-Broadcast an Port 47801; jeder Player antwortet an den Absender mit dem JSON von `/info`.
 
@@ -57,4 +57,4 @@ Ablage auf dem Player wie beim Cloud-Sync (`media/<sha256>.<ext>`, `manifests/`,
 | Teil | Windows | macOS | Android |
 |---|---|---|---|
 | Studio Desktop | ✓ Installer (NSIS) | ✓ DMG (Intel + Apple Silicon) | – |
-| Player | ✓ Installer (Inno Setup) | – | folgt (eigene App, gleiches Protokoll, gleicher Renderer aus `/shared/renderer`) |
+| Player | ✓ Installer (Inno Setup) | – | ✓ APK (Android 7+, Tablets, TV-Boxen; gleiche Oberfläche und gleicher Renderer) |
