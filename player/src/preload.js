@@ -11,6 +11,7 @@ contextBridge.exposeInMainWorld('plinth', {
   checkPin: (pin) => ipcRenderer.invoke('maintenance:pin', pin),
   action: (action, extra = {}) => ipcRenderer.invoke('maintenance:action', { action, ...extra }),
   reportError: (msg) => ipcRenderer.send('renderer:error', msg),
+  alive: () => ipcRenderer.send('renderer:alive'),
   on: (channel, cb) => {
     if (!CHANNELS.includes(channel)) throw new Error(`Unbekannter Kanal ${channel}`);
     ipcRenderer.on(channel, (_e, payload) => cb(payload));

@@ -86,6 +86,7 @@ function runPlayer() {
   let allowClose = false;
   let unlockedUntil = 0;
   let maintenanceTimer = null;
+  let lastAlive = Date.now();
   let screenState = 'loading';
   let lastContent = null;
   const maintenance = new Maintenance(DATA);
@@ -181,6 +182,19 @@ function runPlayer() {
       log.error('Darstellung abgestürzt – wird neu geladen', details);
       setTimeout(() => win.reload(), 1000);
     });
+    // Lebenszeichen der Oberfläche: Stirbt der Renderer ohne Ereignis (kommt vor), wird neu geladen.
+    const RENDERER_TIMEOUT = Number(process.env.PLINTH_RENDERER_TIMEOUT_MS) || 30000;
+    lastAlive = Date.now();
+    setInterval(() => {
+      if (!win || win.isDestroyed() || win.webContents.isLoading()) return;
+      if (Date.now() - lastAlive > RENDERER_TIMEOUT) {
+        log.error('Darstellung ohne Lebenszeichen – wird neu geladen', { sekunden: Math.round((Date.now() - lastAlive) / 1000) });
+        lastAlive = Date.now();
+        // Ein hängender Renderer ignoriert reload(): erst hart beenden, dann neu laden
+        win.webContents.forcefullyCrashRenderer();
+        setTimeout(() => win.webContents.reload(), 500);
+      }
+    }, 2000).unref();
     let unresponsiveTimer = null;
     win.on('unresponsive', () => {
       log.warn('Darstellung reagiert nicht');
@@ -379,6 +393,10 @@ function runPlayer() {
       default:
         return { ok: false };
     }
+  });
+
+  ipcMain.on('renderer:alive', () => {
+    lastAlive = Date.now();
   });
 
   ipcMain.on('renderer:error', (_e, msg) => log.error('Darstellung', { message: String(msg).slice(0, 500) }));

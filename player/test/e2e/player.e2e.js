@@ -24,7 +24,7 @@ async function launch(env = {}) {
   app = await electron.launch({
     executablePath: ELECTRON,
     args: [APP, ...sandboxArgs],
-    env: { ...process.env, PLINTH_DATA_DIR: dataDir, PLINTH_WINDOWED: '1', PLINTH_API_URL: `${BASE}/api`, ...env },
+    env: { ...process.env, PLINTH_DATA_DIR: dataDir, PLINTH_WINDOWED: '1', PLINTH_API_URL: `${BASE}/api`, PLINTH_RENDERER_TIMEOUT_MS: '8000', ...env },
   });
   page = await app.firstWindow();
   await page.waitForLoadState('domcontentloaded');
@@ -172,6 +172,28 @@ test('Absturz der Darstellung: lädt neu und zeigt wieder Inhalte', { skip, time
     }));
   }
   assert.equal(reloaded, 'Version zwei');
+});
+
+test('Darstellung ohne Lebenszeichen wird neu geladen', { skip, timeout: 90000 }, async () => {
+  // Endlosschleife in der Oberfläche: keine Lebenszeichen mehr, ohne dass Electron einen Absturz meldet
+  await app.evaluate(({ BrowserWindow }) => {
+    BrowserWindow.getAllWindows()[0].webContents.executeJavaScript('setTimeout(() => { for (;;) {} }, 10)');
+  });
+  const logFile = path.join(dataDir, 'logs', 'player.log');
+  const end = Date.now() + 40000;
+  while (Date.now() < end && !/ohne Lebenszeichen|reagiert nicht|hängt/.test(fs.readFileSync(logFile, 'utf8'))) await new Promise((r) => setTimeout(r, 500));
+  assert.match(fs.readFileSync(logFile, 'utf8'), /ohne Lebenszeichen|reagiert nicht|hängt/);
+  let text = null;
+  for (let i = 0; i < 40 && text !== 'Version zwei'; i++) {
+    text = await app.evaluate(({ BrowserWindow }) => {
+      const wc = BrowserWindow.getAllWindows()[0].webContents;
+      if (wc.isLoading()) return null;
+      return Promise.race([wc.executeJavaScript('document.querySelector(".plinth-text")?.textContent ?? null'), new Promise((r) => setTimeout(() => r(null), 1500))]);
+    });
+    if (text !== 'Version zwei') await new Promise((r) => setTimeout(r, 500));
+  }
+  if (text !== 'Version zwei') dumpLog(dataDir, 'Lebenszeichen');
+  assert.equal(text, 'Version zwei');
 });
 
 test('Offline-Start zeigt den letzten Stand', { skip, timeout: 90000 }, async () => {
