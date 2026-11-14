@@ -22,16 +22,34 @@ $config = Plinth\Api\Config::load();
 $expected = (string) $config->get('CHECK_TOKEN', '');
 $given = (string) ($_GET['token'] ?? '');
 
+$given = trim($given);
 if (strlen($expected) < 20) {
     http_response_code(403);
     $found = Plinth\Api\Config::envFile();
-    exit('<p>Die Prüfseite ist ausgeschaltet.</p><p>Zum Einschalten in der Konfigurationsdatei eine Zeile <code>CHECK_TOKEN=…</code> mit mindestens 20 zufälligen Zeichen eintragen und diese Seite mit <code>?token=…</code> aufrufen.</p><p>Konfigurationsdatei: '
-        . ($found !== null ? 'gefunden' : '<strong>nicht gefunden</strong> – plinth.env eine Ebene über dem Webroot ablegen') . '</p>');
+    $raw = $found !== null ? (string) @file_get_contents($found) : '';
+    $hasLine = (bool) preg_match('/^\s*CHECK_TOKEN\s*=/m', $raw);
+    $reason = match (true) {
+        $found === null => 'Es wurde keine Konfigurationsdatei gefunden.',
+        !$hasLine => 'Die Konfigurationsdatei wurde gefunden, enthält aber keine Zeile „CHECK_TOKEN=…“.',
+        default => 'Die Zeile „CHECK_TOKEN=…“ ist da, der Wert hat aber nur ' . strlen($expected) . ' Zeichen (mindestens 20 nötig, ohne Leerzeichen und Anführungszeichen).',
+    };
+    echo '<!DOCTYPE html><meta charset="utf-8"><body style="font:15px/1.5 system-ui,sans-serif;max-width:720px;margin:24px auto;padding:0 16px">';
+    echo '<h1 style="font-size:20px">Prüfseite ist ausgeschaltet</h1><p><strong>' . htmlspecialchars($reason) . '</strong></p>';
+    echo '<p>Gesucht wurde hier:</p><ul>';
+    foreach (Plinth\Api\Config::diagnose() as $d) {
+        echo '<li>' . htmlspecialchars($d['ort']) . ': ' . htmlspecialchars($d['status']) . '</li>';
+    }
+    echo '</ul><p>So muss die Zeile in der <code>plinth.env</code> aussehen (eigene Zeile, ohne Leerzeichen):<br><code>CHECK_TOKEN=PUApvLpFKEai1qYua7rqddrk7Mh5oAdE</code></p>';
+    echo '<p>„Über dem Webroot“ heißt: neben dem Ordner, in dem <code>pruefung.php</code> liegt – nicht darin.</p></body>';
+    exit;
 }
 if (!hash_equals($expected, $given)) {
     usleep(500000); // bremst Raten
     http_response_code(403);
-    exit('<p>Falscher oder fehlender Schlüssel.</p>');
+    exit('<!DOCTYPE html><meta charset="utf-8"><body style="font:15px/1.5 system-ui,sans-serif;max-width:720px;margin:24px auto;padding:0 16px"><h1 style="font-size:20px">Schlüssel passt nicht</h1>'
+        . '<p>Die Prüfseite ist eingeschaltet, aber der Schlüssel in der Adresse stimmt nicht mit <code>CHECK_TOKEN</code> in der plinth.env überein'
+        . ($given === '' ? ' – in der Adresse fehlt <code>?token=…</code>.' : ' (Adresse: ' . strlen($given) . ' Zeichen, plinth.env: ' . strlen($expected) . ' Zeichen).') . '</p>'
+        . '<p>Aufruf: <code>/pruefung.php?token=</code> gefolgt vom Wert aus der plinth.env.</p></body>');
 }
 
 // Ersten Benutzer anlegen (nur solange keiner existiert)
