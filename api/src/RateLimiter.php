@@ -44,6 +44,13 @@ final class RateLimiter
         }
     }
 
+    /** Nimmt einen gezählten Treffer zurück (z. B. erfolgreiche Anmeldung zählt nicht als Versuch). */
+    public function release(string $bucket): void
+    {
+        $this->db->prepare('UPDATE rate_limits SET hits = GREATEST(hits, 1) - 1 WHERE bucket = :b')
+            ->execute(['b' => hash('sha256', $bucket)]);
+    }
+
     public function reset(string $bucket): void
     {
         $this->db->prepare('DELETE FROM rate_limits WHERE bucket = :b')->execute(['b' => hash('sha256', $bucket)]);

@@ -52,7 +52,9 @@ final class AuthController
             throw new ApiException(401, 'invalid_credentials', 'E-Mail oder Passwort ist falsch.');
         }
 
+        // Nur Fehlversuche zählen: erfolgreiche Anmeldungen (z. B. viele Nutzer hinter einer Büro-IP) bremsen nicht.
         $this->limiter->reset('login:ip-email:' . $request->ip . ':' . $email);
+        $this->limiter->release('login:ip:' . $request->ip);
 
         // Eine evtl. vorhandene alte Sitzung dieses Browsers beenden (keine Session-Fixation).
         if ($old = $request->cookie(self::COOKIE)) {
