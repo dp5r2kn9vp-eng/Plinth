@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src plinth:; style-src plinth: 'unsafe-inline'; img-src plinth: data:; media-src plinth:; font-src plinth:; connect-src 'none'">
+<title>Plinth Player</title>
+<link rel="stylesheet" href="player.css">
+<script type="module" src="player.js"></script>
+</head>
+<body>
+  <main id="screen" aria-live="off"></main>
+
+  <section id="waiting" class="overlay hidden">
+    <div class="splash">
+      <svg viewBox="0 0 40 40" fill="none" class="logo"><rect x="4" y="6" width="32" height="20" rx="3" stroke="#5ee0c1" stroke-width="2.5"/><path d="M12 34h16M20 26v8" stroke="#5ee0c1" stroke-width="2.5" stroke-linecap="round"/></svg>
+      <h1>Plinth</h1>
+      <p id="waiting-text">Inhalte werden geladen …</p>
+      <div class="bar hidden" id="waiting-bar"><div></div></div>
+      <p class="muted small" id="waiting-device"></p>
+    </div>
+  </section>
+
+  <section id="blocked" class="overlay hidden">
+    <div class="splash"><h1>Gerät gesperrt</h1><p class="muted">Dieses Gerät wurde in Plinth Studio gesperrt.</p></div>
+  </section>
+
+  <section id="setup" class="overlay hidden">
+    <form id="setup-form" class="card" autocomplete="off">
+      <h1>Player einrichten</h1>
+      <p class="muted">Den Kundencode findest du in Plinth Studio unter „Geräte“.</p>
+      <label>Kundencode<input name="kundencode" required placeholder="ABCD-EFGH-JKMN" maxlength="20" spellcheck="false" autocapitalize="characters"></label>
+      <label>Gerätename<input name="name" required maxlength="100" placeholder="z. B. Foyer links"></label>
+      <div class="row">
+        <label>Wartungs-PIN<input name="pin" required inputmode="numeric" pattern="\d{4,8}" type="password" maxlength="8"></label>
+        <label>PIN wiederholen<input name="pin2" required inputmode="numeric" pattern="\d{4,8}" type="password" maxlength="8"></label>
+      </div>
+      <label class="check"><input type="checkbox" name="hideCursor" checked> Mauszeiger ausblenden</label>
+      <details><summary class="muted small">Erweitert</summary>
+        <label>Server (API)<input name="apiUrl" type="url" placeholder="https://…/api"></label>
+      </details>
+      <p id="setup-error" class="error hidden" role="alert"></p>
+      <div class="actions">
+        <button type="button" id="setup-cancel" class="btn hidden">Abbrechen</button>
+        <button type="submit" class="btn primary">Einrichten</button>
+      </div>
+      <p class="muted small">Wartungsmenü später: <span id="setup-shortcut"></span> oder 5× schnell oben links tippen.</p>
+    </form>
+  </section>
+
+  <section id="maintenance" class="overlay hidden">
+    <div class="card" id="pin-card">
+      <h1>Wartung</h1>
+      <input id="pin-input" type="password" inputmode="numeric" maxlength="8" aria-label="PIN" autocomplete="off">
+      <div class="keypad" id="keypad"></div>
+      <div class="actions"><button type="button" class="btn" data-close>Abbrechen</button></div>
+    </div>
+    <div class="card hidden" id="menu-card">
+      <h1>Wartung</h1>
+      <div class="menu">
+        <button type="button" class="btn" data-action="timed" data-minutes="15">Windows nutzen – 15 Minuten</button>
+        <button type="button" class="btn" data-action="timed" data-minutes="60">Windows nutzen – 60 Minuten</button>
+        <button type="button" class="btn" data-action="sync">Jetzt synchronisieren</button>
+        <button type="button" class="btn" data-action="cursor">Mauszeiger ein/aus</button>
+        <button type="button" class="btn" data-action="info">Status &amp; Protokoll</button>
+        <button type="button" class="btn" data-action="setup">Neu einrichten</button>
+        <button type="button" class="btn danger" data-action="quit">Player beenden</button>
+        <button type="button" class="btn primary" data-close>Zurück zum Inhalt</button>
+      </div>
+      <pre id="info" class="info hidden"></pre>
+    </div>
+  </section>
+
+  <div id="indicator" class="indicator hidden" aria-hidden="true"></div>
+</body>
+</html>

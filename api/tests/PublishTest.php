@@ -91,6 +91,7 @@ final class PublishTest extends ApiTestCase
         $m = self::body($this->asDevice($token, 'GET', '/v1/player/manifest'));
         self::assertSame([], (new SchemaValidator())->validateManifest($m['manifest']));
         self::assertSame(1, $m['manifest']['revision']);
+        self::assertSame($this->projektId, $m['projektId']);
         // Standbild des Videos wurde automatisch als Poster eingetragen
         self::assertSame($poster, $m['manifest']['layout']['pages'][0]['elements'][0]['poster']);
         self::assertEqualsCanonicalizing(['image/png', 'image/jpeg', 'video/mp4'], array_column($m['manifest']['files'], 'mime'));

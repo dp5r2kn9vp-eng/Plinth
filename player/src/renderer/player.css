@@ -1,0 +1,46 @@
+:root { --accent: #5ee0c1; --ink: #06231c; --panel: #151a22; --line: #262d38; --text: #e8ecf2; --muted: #8b95a5; --danger: #ff6b6b; }
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; background: #000; color: var(--text); overflow: hidden; font: 18px/1.45 "Segoe UI", system-ui, sans-serif; user-select: none; }
+body.hide-cursor, body.hide-cursor * { cursor: none !important; }
+#screen { position: fixed; inset: 0; }
+.hidden { display: none !important; }
+.overlay { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; background: #0b0e12; z-index: 10; }
+#maintenance { background: rgba(5, 7, 10, .88); z-index: 30; cursor: default !important; }
+#maintenance * { cursor: default !important; }
+#setup { z-index: 20; cursor: default; }
+#setup * { cursor: auto !important; }
+.splash { text-align: center; }
+.logo { width: 72px; height: 72px; }
+h1 { margin: 8px 0 12px; font-size: 32px; }
+.muted { color: var(--muted); }
+.small { font-size: 14px; }
+.bar { width: 360px; height: 6px; background: #1b212b; border-radius: 3px; overflow: hidden; margin: 16px auto; }
+.bar > div { height: 100%; width: 0; background: var(--accent); transition: width .3s; }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 28px 32px; width: min(560px, 92vw); }
+label { display: block; margin: 14px 0 0; font-size: 15px; color: var(--muted); user-select: none; }
+input { display: block; width: 100%; margin-top: 6px; padding: 12px 14px; font: inherit; color: var(--text); background: #0b0e12; border: 1px solid var(--line); border-radius: 10px; user-select: text; }
+input:focus { outline: 2px solid rgba(94,224,193,.5); }
+input[name=kundencode] { font: 600 24px/1.2 ui-monospace, Consolas, monospace; letter-spacing: .08em; text-transform: uppercase; }
+.row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.check { display: flex; gap: 10px; align-items: center; color: var(--text); }
+.check input { width: auto; margin: 0; }
+details { margin-top: 14px; }
+.actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 22px; }
+.btn { font: inherit; font-weight: 600; padding: 12px 20px; border-radius: 10px; border: 1px solid var(--line); background: #1b212b; color: var(--text); }
+.btn.primary { background: var(--accent); color: var(--ink); border-color: var(--accent); }
+.btn.danger { color: var(--danger); }
+.error { color: var(--danger); margin: 14px 0 0; }
+#pin-input { font-size: 32px; text-align: center; letter-spacing: .4em; }
+#pin-card.shake { animation: shake .35s; }
+@keyframes shake { 25% { transform: translateX(-10px); } 75% { transform: translateX(10px); } }
+.keypad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 16px; }
+.keypad button { font-family: inherit; font-weight: 600; font-size: 26px; line-height: 1; padding: 18px 0; border-radius: 12px; border: 1px solid var(--line); background: #1b212b; color: var(--text); }
+.menu { display: grid; gap: 10px; }
+.menu .btn { text-align: left; }
+.info { max-height: 40vh; overflow: auto; background: #0b0e12; border: 1px solid var(--line); border-radius: 10px; padding: 12px; font: 12px/1.4 ui-monospace, Consolas, monospace; white-space: pre-wrap; user-select: text; margin-top: 14px; }
+/* Dezente Techniker-Anzeige: kleiner Punkt unten rechts */
+.indicator { position: fixed; right: 10px; bottom: 10px; width: 10px; height: 10px; border-radius: 50%; z-index: 5; opacity: .75; pointer-events: none; }
+.indicator.offline { background: #f5c451; }
+.indicator.error { background: var(--danger); }
+.indicator.loading { background: var(--accent); animation: pulse 1.6s infinite; }
+@keyframes pulse { 50% { opacity: .2; } }
