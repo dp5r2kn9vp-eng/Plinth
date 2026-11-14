@@ -136,6 +136,22 @@ final class AuthTest extends ApiTestCase
         }
     }
 
+    public function testSuccessfulLoginsDoNotExhaustIpLimit(): void
+    {
+        for ($i = 0; $i < 35; $i++) {
+            $this->createUser("u{$i}@kunde.de", self::PW);
+            self::assertSame(200, $this->request('POST', '/v1/auth/login', ['email' => "u{$i}@kunde.de", 'password' => self::PW])->status, "Login {$i}");
+        }
+    }
+
+    public function testFailedLoginsFromOneIpAreLimitedAcrossEmails(): void
+    {
+        for ($i = 0; $i < 30; $i++) {
+            $this->request('POST', '/v1/auth/login', ['email' => "x{$i}@kunde.de", 'password' => 'falsch']);
+        }
+        self::assertSame(429, $this->request('POST', '/v1/auth/login', ['email' => 'y@kunde.de', 'password' => 'falsch'])->status);
+    }
+
     public function testNewLoginReplacesOldSessionOfSameBrowser(): void
     {
         $this->createUser('anna@kunde.de', self::PW);

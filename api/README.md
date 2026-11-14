@@ -124,7 +124,7 @@ Alle Zeitstempel in UTC.
 - Ohne „Angemeldet bleiben“ läuft die Sitzung nach `SESSION_TTL_HOURS` ab, sonst nach `SESSION_REMEMBER_DAYS`.
 - Gesperrte Benutzer oder Kunden verlieren sofort den Zugriff.
 - Schreibende Requests nur mit `Content-Type: application/json` und passendem `Origin` (CSRF-Schutz).
-- Rate-Limiting beim Login: 5 Versuche pro IP+E-Mail und 30 pro IP in 15 Minuten (`RateLimiter`, auch für Geräte-Endpunkte nutzbar).
+- Rate-Limiting beim Login: 5 Fehlversuche pro IP+E-Mail und 30 pro IP in 15 Minuten (erfolgreiche Anmeldungen zählen nicht) (`RateLimiter`, auch für Geräte-Endpunkte nutzbar).
 - Hinter einem Reverse-Proxy/CDN ist `REMOTE_ADDR` die Proxy-IP – dann muss die echte Client-IP ergänzt werden.
 
 ## Tests
