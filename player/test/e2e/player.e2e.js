@@ -207,8 +207,8 @@ test('Zero-Touch: provision.json richtet das Gerät ohne Eingabe ein', { skip, t
   dataDir = dir;
   try {
     await launch();
-    await page.waitForSelector('#setup.hidden', { state: 'attached' });
-    await new Promise((r) => setTimeout(r, 1500));
+    // Einrichtung läuft im Hintergrund: warten, bis provision.json verbraucht ist
+    for (let i = 0; i < 60 && fs.existsSync(path.join(dir, 'provision.json')); i++) await new Promise((r) => setTimeout(r, 250));
     if (fs.existsSync(path.join(dir, 'provision.json'))) dumpLog(dir, 'Zero-Touch');
     const { geraete } = await studio.call('GET', '/geraete');
     assert.ok(geraete.some((g) => g.name === name));
