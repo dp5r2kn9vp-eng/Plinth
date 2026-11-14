@@ -4,7 +4,9 @@ Inno-Setup-Skript `plinth.iss` für den Plinth Player.
 
 - Installiert nach `C:\Program Files\Plinth`, legt `C:\ProgramData\Plinth` an (für Benutzer beschreibbar)
 - Autostart für alle Benutzer: `Plinth.exe --watchdog` (HKLM\…\Run)
-- Option **Kiosk-Einstellungen**: Bildschirm/PC schlafen nie, Ruhezustand aus, Windows-Update-Nutzungszeit 6–23 Uhr, Kantenwischen aus
+- **Kiosk-Einstellungen** (standardmäßig an): Bildschirm/PC schlafen nie, Ruhezustand aus, Windows-Update-Nutzungszeit 6–23 Uhr, Kantenwischen aus
+- Firewall-Freigabe für den Offline-Empfang (TCP 47800, UDP 47801), bei Deinstallation entfernt
+- Ohne Parameter startet der Player im **Offline-Betrieb** und richtet sich selbst ein ([`docs/offline.md`](../docs/offline.md))
 - Beendet laufende Player vor Update und Deinstallation
 - Deinstallation entfernt Programm, Autostart und Daten (Medien, Token, Protokolle)
 

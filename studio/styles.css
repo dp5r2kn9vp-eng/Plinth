@@ -171,3 +171,13 @@ textarea { resize: vertical; }
   .library { order: 3; }
   .inspector { order: 2; }
 }
+
+/* Offline-Betrieb (Plinth Studio Desktop) */
+.devices-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+h2.section { font-size: 15px; margin: 28px 0 10px; }
+.found { display: grid; gap: 8px; }
+.found-item { display: flex; justify-content: space-between; align-items: center; gap: 12px; background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 10px 14px; }
+.dist { list-style: none; padding: 0; margin: 0; display: grid; gap: 10px; min-width: 380px; }
+.dist li .row { display: flex; justify-content: space-between; gap: 12px; font-size: 13px; }
+.dist li.err .state { color: var(--danger); }
+.dist li.ok .state { color: var(--ok); }

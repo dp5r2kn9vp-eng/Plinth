@@ -10,6 +10,8 @@ import { Library } from './editor/library.js';
 import { openPreview } from './editor/preview.js';
 import { publish } from './editor/publish.js';
 import { renderDevices } from './devices.js';
+import { renderOfflineDevices } from './devices-offline.js';
+import { mode } from './lib/mode.js';
 
 const app = document.getElementById('app');
 const state = { user: null, projekte: [], projekt: null, version: 0, store: null, save: 'saved', view: 'editor' };
@@ -17,7 +19,10 @@ const assets = new Assets();
 
 async function boot() {
   try {
-    state.user = (await get('/auth/me')).user;
+    const me = await get('/auth/me');
+    state.user = me.user;
+    mode.offline = me.modus === 'offline';
+    document.body.classList.toggle('offline', mode.offline);
   } catch {
     return; // api() leitet bei 401 zur Anmeldung weiter
   }
@@ -62,8 +67,8 @@ function header() {
       h('button.btn', { type: 'button', onclick: () => openPreview(state.store.layout, assets) }, 'Vorschau'),
       h('button.btn.primary', { type: 'button', onclick: doPublish }, 'Veröffentlichen'),
     ] : null,
-    h('div.user', {}, h('span.muted.small', {}, state.user.name),
-      h('button.btn.sm', { type: 'button', onclick: logout }, 'Abmelden')));
+    h('div.user', {}, h('span.muted.small', {}, mode.offline ? `Offline · ${state.user.name}` : state.user.name),
+      mode.offline ? null : h('button.btn.sm', { type: 'button', onclick: logout }, 'Abmelden')));
 }
 
 function refreshHeader() {
@@ -78,7 +83,7 @@ async function switchView(view) {
   else {
     const main = h('main.page');
     app.replaceChildren(header(), main);
-    renderDevices(main).catch((e) => toast(e.message, 'error'));
+    (mode.offline ? renderOfflineDevices : renderDevices)(main).catch((e) => toast(e.message, 'error'));
   }
 }
 

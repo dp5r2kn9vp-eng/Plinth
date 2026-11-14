@@ -20,6 +20,16 @@ function applyState(s) {
   document.body.classList.toggle('hide-cursor', !!s.hideCursor);
   $('setup-shortcut').textContent = s.shortcut.replaceAll('+', ' + ');
   $('waiting-device').textContent = `${s.deviceName} · Version ${s.version}`;
+  for (const b of document.querySelectorAll('[data-mode]')) b.classList.toggle('hidden', b.dataset.mode !== s.mode);
+  const pairing = s.offline;
+  $('pairing').classList.toggle('hidden', !pairing);
+  if (pairing) {
+    $('pair-code').textContent = `${pairing.code.slice(0, 3)} ${pairing.code.slice(3)}`;
+    $('pair-address').textContent = pairing.addresses.length
+      ? `Adresse: ${pairing.addresses.join(', ')}${pairing.port !== 47800 ? ` (Port ${pairing.port})` : ''}`
+      : 'Keine Netzwerkverbindung';
+    if (!status.download) $('waiting-text').textContent = pairing.paired ? 'Gekoppelt. Warte auf Inhalte aus Plinth Studio …' : 'Noch keine Inhalte.';
+  }
   for (const id of ['setup', 'waiting', 'blocked']) $(id).classList.add('hidden');
   if (s.screen === 'setup') showSetup();
   if (s.screen === 'waiting') $('waiting').classList.remove('hidden');
@@ -61,6 +71,8 @@ api.on('status', (s) => {
     $('waiting-text').textContent = `Inhalte werden geladen … ${pct} %`;
     $('waiting-bar').classList.remove('hidden');
     $('waiting-bar').firstElementChild.style.width = `${pct}%`;
+  } else if (s.offline) {
+    $('waiting-bar').classList.add('hidden');
   } else if (s.online === false) {
     $('waiting-text').textContent = 'Keine Verbindung zum Server – neuer Versuch läuft automatisch.';
     $('waiting-bar').classList.add('hidden');
@@ -209,12 +221,16 @@ for (const b of document.querySelectorAll('[data-action]')) {
       openMaintenance(); // Freischaltung abgelaufen
       return;
     }
-    if (action === 'info') {
+    if (action === 'pairing') {
+      const p = res.pairing;
+      $('info').textContent = p ? [`Gerät: ${p.name}`, `Kopplungscode: ${p.code}`, `Adresse: ${p.addresses.join(', ') || '–'}   Port: ${p.port}`].join('\n') : 'Nicht im Offline-Betrieb.';
+      $('info').classList.remove('hidden');
+    } else if (action === 'info') {
       const i = res.info;
       const s = i.status ?? {};
       $('info').textContent = [
         `Gerät: ${i.deviceName ?? '–'}   Version: ${i.version}`,
-        `Server: ${i.apiUrl}`,
+        i.offline ? `Betrieb: offline · Adresse ${i.offline.addresses.join(', ') || '–'}:${i.offline.port} · gekoppelt mit ${i.offline.studios.join(', ') || 'keinem Studio'}` : `Server: ${i.apiUrl}`,
         `Daten: ${i.dataDir}`,
         `Revision: ${i.revision ?? '–'}   Online: ${s.online ?? '–'}   Letzte Prüfung: ${s.lastCheck ? new Date(s.lastCheck).toLocaleString('de-DE') : '–'}`,
         `Fehler: ${s.lastError ?? 'keine'}`,

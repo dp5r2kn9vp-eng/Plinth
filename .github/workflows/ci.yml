@@ -100,6 +100,12 @@ jobs:
           npm ci
           npm test
 
+      - name: Studio Desktop (Offline) – lokale API, Kopplung, Verteilung an Player
+        working-directory: studio-desktop
+        run: |
+          npm ci
+          npm test
+
       - name: Studio – Ende-zu-Ende (Playwright)
         working-directory: tests
         run: |

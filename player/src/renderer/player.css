@@ -44,3 +44,6 @@ details { margin-top: 14px; }
 .indicator.error { background: var(--danger); }
 .indicator.loading { background: var(--accent); animation: pulse 1.6s infinite; }
 @keyframes pulse { 50% { opacity: .2; } }
+
+.pairing { margin-top: 28px; }
+.pair-code { font-size: 72px; font-weight: 700; letter-spacing: 0.18em; color: #5ee0c1; font-variant-numeric: tabular-nums; margin: 12px 0; }

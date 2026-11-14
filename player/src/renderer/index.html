@@ -16,6 +16,11 @@
       <h1>Plinth</h1>
       <p id="waiting-text">Inhalte werden geladen …</p>
       <div class="bar hidden" id="waiting-bar"><div></div></div>
+      <div class="pairing hidden" id="pairing">
+        <p>Bereit für Plinth Studio. In Studio unter „Geräte“ diesen Player koppeln:</p>
+        <div class="pair-code" id="pair-code"></div>
+        <p class="muted small" id="pair-address"></p>
+      </div>
       <p class="muted small" id="waiting-device"></p>
     </div>
   </section>
@@ -59,10 +64,13 @@
       <div class="menu">
         <button type="button" class="btn" data-action="timed" data-minutes="15">Windows nutzen – 15 Minuten</button>
         <button type="button" class="btn" data-action="timed" data-minutes="60">Windows nutzen – 60 Minuten</button>
-        <button type="button" class="btn" data-action="sync">Jetzt synchronisieren</button>
+        <button type="button" class="btn" data-action="sync" data-mode="cloud">Jetzt synchronisieren</button>
+        <button type="button" class="btn" data-action="pairing" data-mode="offline">Kopplungscode anzeigen</button>
         <button type="button" class="btn" data-action="cursor">Mauszeiger ein/aus</button>
         <button type="button" class="btn" data-action="info">Status &amp; Protokoll</button>
-        <button type="button" class="btn" data-action="setup">Neu einrichten</button>
+        <button type="button" class="btn" data-action="setup" data-mode="cloud">Neu einrichten</button>
+        <button type="button" class="btn" data-action="setup" data-mode="offline">Mit Plinth Cloud verbinden</button>
+        <button type="button" class="btn" data-action="offline" data-mode="cloud">Offline-Betrieb (ohne Server)</button>
         <button type="button" class="btn danger" data-action="quit">Player beenden</button>
         <button type="button" class="btn primary" data-close>Zurück zum Inhalt</button>
       </div>

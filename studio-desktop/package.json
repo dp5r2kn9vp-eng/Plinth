@@ -1,0 +1,65 @@
+{
+  "name": "plinth-studio",
+  "productName": "Plinth Studio",
+  "version": "1.0.0",
+  "description": "Plinth Studio – Designer für Plinth-Bildschirme, ohne Server (offline)",
+  "main": "src/main.js",
+  "private": true,
+  "author": "Plinth",
+  "license": "UNLICENSED",
+  "scripts": {
+    "start": "electron .",
+    "test": "node --test \"test/*.test.js\"",
+    "dist:win": "electron-builder --win nsis",
+    "dist:mac": "electron-builder --mac dmg"
+  },
+  "dependencies": {
+    "ajv": "^8.17.1"
+  },
+  "devDependencies": {
+    "electron": "^33.4.11",
+    "electron-builder": "^25.1.8"
+  },
+  "build": {
+    "appId": "de.klangniveau.plinth.studio",
+    "productName": "Plinth Studio",
+    "copyright": "Plinth",
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "files": [
+      "src/**/*",
+      "package.json"
+    ],
+    "extraResources": [
+      { "from": "../studio", "to": "studio", "filter": ["**/*", "!README.md", "!login.html"] },
+      { "from": "../shared", "to": "shared", "filter": ["renderer/**/*", "schemas/**/*"] }
+    ],
+    "asar": true,
+    "artifactName": "PlinthStudio-${version}-${os}-${arch}.${ext}",
+    "win": {
+      "target": [{ "target": "nsis", "arch": ["x64"] }],
+      "icon": "build/icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Plinth Studio",
+      "deleteAppDataOnUninstall": false,
+      "artifactName": "PlinthStudioSetup-${version}.${ext}"
+    },
+    "mac": {
+      "target": [{ "target": "dmg", "arch": ["universal"] }],
+      "icon": "build/icon.png",
+      "category": "public.app-category.graphics-design",
+      "identity": null
+    },
+    "dmg": {
+      "artifactName": "PlinthStudio-${version}-mac.${ext}"
+    }
+  }
+}

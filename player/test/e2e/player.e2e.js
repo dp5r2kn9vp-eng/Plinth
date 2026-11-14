@@ -82,7 +82,7 @@ before(async () => {
   kundencode = (await studio.call('GET', '/kunde')).kunde.kundencode;
   dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'plinth-player-'));
   // schnelles Polling für den Test
-  fs.writeFileSync(path.join(dataDir, 'config.json'), JSON.stringify({ pollSeconds: 2 }));
+  fs.writeFileSync(path.join(dataDir, 'config.json'), JSON.stringify({ pollSeconds: 2, mode: 'cloud' }));
 });
 
 after(close);

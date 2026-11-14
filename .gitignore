@@ -5,3 +5,6 @@ dist/
 *.log
 .phpunit.cache/
 storage/
+android/.gradle/
+android/**/build/
+android/local.properties

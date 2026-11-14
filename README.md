@@ -1,9 +1,11 @@
 # Plinth
 
-Digital-Signage-System für Windows-Kiosk-Displays.
+Digital-Signage-System für Kiosk-Displays – mit Cloud oder ganz ohne Server (Offline-Betrieb).
 
 - **Plinth Studio** (`/studio`): webbasierter Designer, Layouts frei positionieren, Medien hochladen, veröffentlichen
-- **Plinth Player** (`/player`): Windows-App, holt sich Veröffentlichungen und spielt sie lokal ab (offlinefähig)
+- **Plinth Studio Desktop** (`/studio-desktop`): derselbe Designer als Programm für Windows und macOS, ohne Server; veröffentlicht direkt an Player im lokalen Netz
+- **Plinth Player** (`/player`): Windows-App, holt sich Veröffentlichungen aus der Cloud oder nimmt sie im lokalen Netz vom Studio an und spielt sie lokal ab; richtet sich nach der Installation selbst ein
+- **Plinth Player für Android** (`/android`): derselbe Player als App für Tablets, TV-Boxen und Signage-Displays (Offline-Betrieb)
 - **API** (`/api`): PHP-Backend (Login, Kunden, Geräte, Revisionen, signierte Speicher-Links)
 - **Speicher**: S3-kompatibler Cloud-Speicher (privat), Dateien laufen nie durch PHP
 - **Schemas** (`/shared`): Manifest- und Layout-Format
@@ -20,6 +22,9 @@ Ticketquelle: `docs/tickets/`.
 | Layout- und Manifest-Format | [`shared/README.md`](shared/README.md) |
 | API (Einrichtung, Endpunkte, Sicherheit) | [`api/README.md`](api/README.md) |
 | Studio | [`studio/README.md`](studio/README.md) |
+| **Offline-Betrieb** (Studio Desktop, Kopplung, Protokoll) | [`docs/offline.md`](docs/offline.md) |
+| Studio Desktop (Windows, macOS) | [`studio-desktop/README.md`](studio-desktop/README.md) |
+| Android-Player | [`android/README.md`](android/README.md) |
 | Player | [`player/README.md`](player/README.md) |
 | Installer und Rollout | [`installer/README.md`](installer/README.md) |
 | Kiosk-Einrichtung Windows | [`docs/kiosk-einrichtung.md`](docs/kiosk-einrichtung.md) |
