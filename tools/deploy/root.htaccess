@@ -7,5 +7,7 @@ Options -Indexes
 </FilesMatch>
 
 RewriteEngine On
-# Startseite → Studio
-RewriteRule ^$ studio/ [R=302,L]
+# Feste Basis, damit Hoster (z. B. all-inkl) nicht den Serverpfad in Weiterleitungen einsetzen
+RewriteBase /
+# Startseite → Studio (absolutes Ziel)
+RewriteRule ^$ /studio/ [R=302,L]

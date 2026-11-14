@@ -20,6 +20,8 @@ rsync -a "$ROOT/shared/renderer" "$ROOT/shared/schemas" "$OUT/shared/"
 echo "→ Schutz und Vorlagen"
 cp "$ROOT/tools/deploy/root.htaccess" "$OUT/.htaccess"
 cp "$ROOT/tools/deploy/index.html" "$OUT/index.html"
+cp "$ROOT/tools/deploy/pruefung.php" "$OUT/pruefung.php"
+cp "$ROOT/tools/deploy/cron.php" "$OUT/cron.php"
 cp "$ROOT/.env.example" "$OUT/plinth.env.vorlage"
 cp "$ROOT/tools/deploy/ANLEITUNG.md" "$OUT/ANLEITUNG.md"
 

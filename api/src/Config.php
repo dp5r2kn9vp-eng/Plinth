@@ -35,6 +35,12 @@ final class Config
         return new self($values);
     }
 
+    /** Pfad der gefundenen Konfigurationsdatei oder null */
+    public static function envFile(): ?string
+    {
+        return self::findEnvFile();
+    }
+
     private static function findEnvFile(): ?string
     {
         $candidates = [
