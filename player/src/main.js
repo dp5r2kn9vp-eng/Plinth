@@ -87,6 +87,7 @@ function runPlayer() {
   let unlockedUntil = 0;
   let maintenanceTimer = null;
   let lastAlive = Date.now();
+  let lastRendererReload = 0;
   let screenState = 'loading';
   let lastContent = null;
   const maintenance = new Maintenance(DATA);
@@ -186,10 +187,20 @@ function runPlayer() {
     const RENDERER_TIMEOUT = Number(process.env.PLINTH_RENDERER_TIMEOUT_MS) || 30000;
     lastAlive = Date.now();
     setInterval(() => {
-      if (!win || win.isDestroyed() || win.webContents.isLoading()) return;
+      if (!win || win.isDestroyed()) return;
+      // Hängt das Neuladen selbst, zählt die Zeit trotzdem (isLoading bleibt sonst ewig true)
+      if (win.webContents.isLoading() && lastRendererReload > 0 && Date.now() - lastRendererReload > RENDERER_TIMEOUT) lastAlive = Math.min(lastAlive, lastRendererReload);
+      else if (win.webContents.isLoading()) return;
       if (Date.now() - lastAlive > RENDERER_TIMEOUT) {
+        // Zweiter Ausfall kurz nach dem Neuladen: ganzen Player neu starten (der Watchdog übernimmt)
+        if (Date.now() - lastRendererReload < 3 * RENDERER_TIMEOUT) {
+          log.error('Darstellung erholt sich nicht – Player wird neu gestartet');
+          app.exit(1);
+          return;
+        }
         log.error('Darstellung ohne Lebenszeichen – wird neu geladen', { sekunden: Math.round((Date.now() - lastAlive) / 1000) });
         lastAlive = Date.now();
+        lastRendererReload = Date.now();
         // Ein hängender Renderer ignoriert reload(): erst hart beenden, dann neu laden
         win.webContents.forcefullyCrashRenderer();
         setTimeout(() => win.webContents.reload(), 500);
