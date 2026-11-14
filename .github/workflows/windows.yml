@@ -35,9 +35,10 @@ jobs:
 
       - name: Player bauen (electron-builder)
         working-directory: player
+        shell: bash
         run: |
           npm ci
-          npx electron-builder --win --dir -c.extraMetadata.version=${{ steps.v.outputs.version }}
+          npx electron-builder --win --dir --config.extraMetadata.version=${{ steps.v.outputs.version }}
 
       - name: Installer bauen (Inno Setup)
         shell: pwsh
