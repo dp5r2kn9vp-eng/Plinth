@@ -31,6 +31,15 @@ async function launch(env = {}) {
   return page;
 }
 
+/** Bei Fehlschlägen das Player-Protokoll ausgeben (in der CI sonst nicht sichtbar). */
+function dumpLog(dir, title) {
+  try {
+    console.error(`--- ${title}: player.log ---\n${fs.readFileSync(path.join(dir, 'logs', 'player.log'), 'utf8').split('\n').slice(-40).join('\n')}`);
+  } catch (e) {
+    console.error(`--- ${title}: kein Protokoll (${e.message})`);
+  }
+}
+
 async function close() {
   await app?.evaluate(({ app: a }) => a.exit(0)).catch(() => {});
   app = null;
@@ -155,6 +164,13 @@ test('Absturz der Darstellung: lädt neu und zeigt wieder Inhalte', { skip, time
     });
     if (reloaded !== 'Version zwei') await new Promise((r) => setTimeout(r, 500));
   }
+  if (reloaded !== 'Version zwei') {
+    dumpLog(dataDir, 'Absturztest');
+    console.error('Fensterzustand:', await app.evaluate(({ BrowserWindow }) => {
+      const wc = BrowserWindow.getAllWindows()[0]?.webContents;
+      return wc ? { crashed: wc.isCrashed(), loading: wc.isLoading(), url: wc.getURL() } : 'kein Fenster';
+    }));
+  }
   assert.equal(reloaded, 'Version zwei');
 });
 
@@ -192,6 +208,8 @@ test('Zero-Touch: provision.json richtet das Gerät ohne Eingabe ein', { skip, t
   try {
     await launch();
     await page.waitForSelector('#setup.hidden', { state: 'attached' });
+    await new Promise((r) => setTimeout(r, 1500));
+    if (fs.existsSync(path.join(dir, 'provision.json'))) dumpLog(dir, 'Zero-Touch');
     const { geraete } = await studio.call('GET', '/geraete');
     assert.ok(geraete.some((g) => g.name === name));
     assert.equal(fs.existsSync(path.join(dir, 'provision.json')), false, 'Datei mit Code/PIN gelöscht');
