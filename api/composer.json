@@ -15,14 +15,26 @@
         "phpunit/phpunit": "^11.0"
     },
     "autoload": {
-        "psr-4": { "Plinth\\Api\\": "src/" }
+        "psr-4": {
+            "Plinth\\Api\\": "src/"
+        }
     },
     "autoload-dev": {
-        "psr-4": { "Plinth\\Api\\Tests\\": "tests/" }
+        "psr-4": {
+            "Plinth\\Api\\Tests\\": "tests/"
+        }
     },
     "scripts": {
         "migrate": "php bin/migrate.php",
-        "test": "phpunit"
+        "test": "phpunit",
+        "pre-autoload-dump": "Aws\\Script\\Composer\\Composer::removeUnusedServices"
     },
-    "config": { "sort-packages": true }
+    "config": {
+        "sort-packages": true
+    },
+    "extra": {
+        "aws/aws-sdk-php": [
+            "S3"
+        ]
+    }
 }

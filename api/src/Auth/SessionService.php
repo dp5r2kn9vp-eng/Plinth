@@ -22,9 +22,15 @@ final class SessionService
     ) {
     }
 
+    /** Argon2id, falls das PHP des Hosters es kann; sonst bcrypt (wird später automatisch umgestellt). */
+    public static function algorithm(): string
+    {
+        return defined('PASSWORD_ARGON2ID') ? PASSWORD_ARGON2ID : PASSWORD_BCRYPT;
+    }
+
     public static function hashPassword(string $password): string
     {
-        return password_hash($password, PASSWORD_ARGON2ID);
+        return password_hash($password, self::algorithm());
     }
 
     /**
@@ -53,7 +59,7 @@ final class SessionService
             return null;
         }
 
-        if (password_needs_rehash($user['passwort_hash'], PASSWORD_ARGON2ID)) {
+        if (password_needs_rehash($user['passwort_hash'], self::algorithm())) {
             $this->db->prepare('UPDATE benutzer SET passwort_hash = :h WHERE id = :id')
                 ->execute(['h' => self::hashPassword($password), 'id' => $user['id']]);
         }

@@ -15,12 +15,16 @@ final class Config
     }
 
     /**
-     * Lädt die .env (falls vorhanden). Echte Umgebungsvariablen haben Vorrang.
+     * Lädt die Konfigurationsdatei. Gesucht wird (erste vorhandene gewinnt):
+     *   1. PLINTH_ENV_FILE (Umgebungsvariable)
+     *   2. plinth.env eine Ebene ÜBER dem Webroot (empfohlen, nie per Web erreichbar)
+     *   3. .env im Webroot (nur mit Schutz durch .htaccess)
+     * Echte Umgebungsvariablen haben Vorrang vor Werten aus der Datei.
      */
     public static function load(?string $envFile = null): self
     {
-        $envFile ??= getenv('PLINTH_ENV_FILE') ?: dirname(__DIR__, 2) . '/.env';
-        $values = is_file($envFile) ? self::parseEnvFile($envFile) : [];
+        $envFile ??= self::findEnvFile();
+        $values = $envFile !== null && is_file($envFile) ? self::parseEnvFile($envFile) : [];
 
         foreach (array_keys($values) as $key) {
             $real = getenv($key);
@@ -29,6 +33,21 @@ final class Config
             }
         }
         return new self($values);
+    }
+
+    private static function findEnvFile(): ?string
+    {
+        $candidates = [
+            getenv('PLINTH_ENV_FILE') ?: null,
+            dirname(__DIR__, 3) . '/plinth.env',
+            dirname(__DIR__, 2) . '/.env',
+        ];
+        foreach ($candidates as $file) {
+            if ($file !== null && is_file($file)) {
+                return $file;
+            }
+        }
+        return null;
     }
 
     /** @param array<string,string> $values */
