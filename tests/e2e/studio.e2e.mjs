@@ -218,12 +218,20 @@ test('Upload pausieren und nach Neuladen fortsetzen', async () => {
     await route.continue();
   });
 
+  // Erfolgreich abgeschlossene Teile mitschreiben
+  const completed = new Set();
+  ctx.on('requestfinished', async (req) => {
+    const u = new URL(req.url());
+    if (req.method() === 'PUT' && u.searchParams.has('partNumber') && (await req.response())?.status() === 200) completed.add(u.searchParams.get('partNumber'));
+  });
   await page.setInputFiles('.library input[type=file]', file);
   // Pausieren, sobald die ersten Teile fertig sind (der 4. Teil startet erst danach)
   for (let i = 0; i < 100 && puts.length < 4; i++) await page.waitForTimeout(100);
   await page.getByRole('button', { name: 'Pause' }).click();
   await page.waitForSelector('.job.pausiert');
   const firstRound = new Set(puts);
+  const doneBeforePause = new Set(completed);
+  assert.ok(doneBeforePause.size >= 1, 'mindestens ein Teil war vor der Pause fertig');
 
   await page.reload();
   await page.waitForSelector('.pending-item');
@@ -234,7 +242,7 @@ test('Upload pausieren und nach Neuladen fortsetzen', async () => {
   const d = dateien.find((x) => x.name === file.split('/').pop());
   assert.equal(d.status, 'fertig');
   assert.ok(puts.length > 0 && puts.length < 8, `nur fehlende Teile erneut hochgeladen (${puts.join(',')} nach ${[...firstRound].join(',')})`);
-  assert.ok(!puts.includes('1'), 'Teil 1 wurde nicht erneut hochgeladen');
+  for (const n of doneBeforePause) assert.ok(!puts.includes(n), `fertiger Teil ${n} wurde nicht erneut hochgeladen`);
   await api(page, 'DELETE', `/dateien/${d.id}`);
   await ctx.close();
 });
