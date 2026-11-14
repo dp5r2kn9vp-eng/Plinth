@@ -1,0 +1,77 @@
+name: Studio-Desktop-Build
+
+# Baut Plinth Studio Desktop (Offline-Designer) für Windows (Installer .exe) und macOS (.dmg, Intel + Apple Silicon).
+# Bei Tags v* werden die Dateien an das GitHub-Release gehängt.
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+concurrency:
+  group: studio-desktop-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Studio Desktop (${{ matrix.name }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Windows
+            os: windows-2022
+            target: --win nsis
+            files: studio-desktop/dist/PlinthStudioSetup-*.exe
+          - name: macOS
+            os: macos-14
+            target: --mac dmg
+            files: studio-desktop/dist/PlinthStudio-*-mac.dmg
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Version bestimmen
+        id: v
+        shell: bash
+        run: |
+          if [ "${{ github.ref_type }}" = "tag" ]; then v="${GITHUB_REF_NAME#v}"; else v=$(node -p "require('./studio-desktop/package.json').version"); fi
+          echo "version=$v" >> "$GITHUB_OUTPUT"
+
+      - name: Abhängigkeiten und Tests
+        working-directory: studio-desktop
+        shell: bash
+        run: |
+          npm ci
+          npm test
+
+      - name: Bauen (electron-builder)
+        working-directory: studio-desktop
+        shell: bash
+        env:
+          # Ohne Zertifikat bauen (Code-Signing folgt mit #36)
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+        run: npx electron-builder ${{ matrix.target }} --publish never --config.extraMetadata.version=${{ steps.v.outputs.version }}
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: PlinthStudio-${{ matrix.name }}-${{ steps.v.outputs.version }}
+          path: ${{ matrix.files }}
+
+      - name: An Release anhängen
+        if: github.ref_type == 'tag'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1 || gh release create "$GITHUB_REF_NAME" --title "Plinth $GITHUB_REF_NAME" --generate-notes || true
+          gh release upload "$GITHUB_REF_NAME" ${{ matrix.files }} --clobber

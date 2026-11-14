@@ -9,6 +9,8 @@
 ;   /KUNDENCODE und /PIN legen provision.json ab: der Player richtet sich beim ersten Start selbst ein.
 ;   /NAME ist optional (Standard: Computername), /APIURL optional (Standard aus dem Player).
 ;
+;   Ohne /KUNDENCODE startet der Player im Offline-Betrieb: keine Eingabe nötig, Kopplung aus Plinth Studio.
+;
 ; Stille Deinstallation:
 ;   "C:\Program Files\Plinth\unins000.exe" /VERYSILENT /SUPPRESSMSGBOXES /NORESTART
 
@@ -47,7 +49,8 @@ MinVersion=10.0
 Name: "de"; MessagesFile: "compiler:Languages\German.isl"
 
 [Tasks]
-Name: "kiosk"; Description: "Kiosk-Einstellungen: kein Energiesparen, Updates nachts, kein Kantenwischen"; Flags: unchecked
+; Standardmäßig aktiv: der Player soll ohne Nacharbeit als Kiosk laufen (auch bei stiller Installation ohne /TASKS)
+Name: "kiosk"; Description: "Kiosk-Einstellungen: kein Energiesparen, Updates nachts, kein Kantenwischen"
 
 [Dirs]
 ; Datenordner für alle Benutzer beschreibbar (Player läuft im Konto mit Auto-Login, nicht als Administrator)
@@ -74,11 +77,17 @@ Filename: "{sys}\powercfg.exe"; Parameters: "/change monitor-timeout-ac 0"; Flag
 Filename: "{sys}\powercfg.exe"; Parameters: "/change standby-timeout-ac 0"; Flags: runhidden; Tasks: kiosk
 Filename: "{sys}\powercfg.exe"; Parameters: "/change hibernate-timeout-ac 0"; Flags: runhidden; Tasks: kiosk
 Filename: "{sys}\powercfg.exe"; Parameters: "/hibernate off"; Flags: runhidden; Tasks: kiosk
+; Firewall: Offline-Empfang (TCP 47800) und Suche im Netz (UDP 47801) für Plinth Studio freigeben.
+; Ohne diese Regeln fragt Windows beim ersten Start per Dialog nach – im Kiosk unerwünscht.
+Filename: "{sys}\netsh.exe"; Parameters: "advfirewall firewall delete rule name=""Plinth Player (Offline)"""; Flags: runhidden
+Filename: "{sys}\netsh.exe"; Parameters: "advfirewall firewall add rule name=""Plinth Player (Offline)"" dir=in action=allow program=""{app}\Plinth.exe"" protocol=TCP localport=47800 profile=any enable=yes"; Flags: runhidden
+Filename: "{sys}\netsh.exe"; Parameters: "advfirewall firewall add rule name=""Plinth Player (Offline)"" dir=in action=allow program=""{app}\Plinth.exe"" protocol=UDP localport=47801 profile=any enable=yes"; Flags: runhidden
 ; Nach interaktiver Installation direkt starten (bei stiller Installation startet der Autostart beim nächsten Anmelden)
 Filename: "{app}\Plinth.exe"; Parameters: "--watchdog"; Description: "Plinth Player jetzt starten"; Flags: nowait postinstall skipifsilent runasoriginaluser
 
 [UninstallRun]
 Filename: "{sys}\taskkill.exe"; Parameters: "/F /T /IM Plinth.exe"; Flags: runhidden; RunOnceId: "KillPlinth"
+Filename: "{sys}\netsh.exe"; Parameters: "advfirewall firewall delete rule name=""Plinth Player (Offline)"""; Flags: runhidden; RunOnceId: "FirewallPlinth"
 
 [UninstallDelete]
 ; Saubere Deinstallation: Daten, Medien, Token, Protokolle

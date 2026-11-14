@@ -4,7 +4,7 @@ Windows-App (Electron), die veröffentlichte Inhalte lokal vorhält und im Vollb
 
 ## Ablauf
 
-1. **Erster Start:** Einrichtung mit Kundencode, Gerätename und Wartungs-PIN. Alternativ automatisch über `provision.json` (siehe unten).
+1. **Erster Start:** ohne Eingabe im **Offline-Betrieb**: Der Player zeigt Kopplungscode und IP-Adresse und wartet auf Plinth Studio Desktop im lokalen Netz (siehe [`docs/offline.md`](../docs/offline.md)). Für die Cloud: Kundencode über `provision.json` bzw. Installer-Parameter (siehe unten) oder im Wartungsmenü *Mit Plinth Cloud verbinden*.
 2. **Synchronisation:** alle ~45 s (±20 %) fragt der Player die Revisionsnummer ab (ETag, meist 304). Bei Änderung lädt er das Manifest und **nur fehlende Dateien** (SHA-256-adressiert), fortsetzbar per HTTP-Range, prüft jede Datei per SHA-256 und schaltet **erst um, wenn alles da ist**. Die vorige Revision bleibt als Rückfall erhalten; nicht mehr benötigte Dateien werden gelöscht.
 3. **Wiedergabe:** derselbe Renderer wie die Studio-Vorschau (`/shared/renderer`): Startseite → Video/Seite → zurück, nach Videoende automatisch zurück, Inaktivitäts-Timeout aus dem Layout. Maus und Touch gleich (Pointer-Events), Mauszeiger optional ausgeblendet.
 4. **Offline:** zeigt den zuletzt geladenen Stand; ein kleiner gelber Punkt unten rechts zeigt „keine Verbindung“.

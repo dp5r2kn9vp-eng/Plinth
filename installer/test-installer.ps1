@@ -1,6 +1,7 @@
 # Prüft den Installer auf einem echten Windows (CI oder Testrechner, als Administrator):
 # stille Installation mit Provisionierung, Dateien, Rechte, Autostart, Kiosk-Einstellungen,
-# Start über den Watchdog inkl. Neustart nach Absturz, Update bei laufendem Player, Deinstallation.
+# Start über den Watchdog inkl. Neustart nach Absturz, Update bei laufendem Player, Deinstallation,
+# danach Installation ohne Parameter: Player richtet sich selbst im Offline-Betrieb ein.
 param([Parameter(Mandatory)] [string] $Setup)
 $ErrorActionPreference = 'Stop'
 
@@ -44,6 +45,9 @@ $wu = Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\WindowsUpdate\UX\Settings'
 Check ($wu.ActiveHoursStart -eq 6 -and $wu.ActiveHoursEnd -eq 23) "Kiosk: Update-Nutzungszeit 6–23 Uhr"
 Check ((Get-ItemProperty 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\EdgeUI').AllowEdgeSwipe -eq 0) "Kiosk: Kantenwischen aus"
 
+$fw = @(Get-NetFirewallRule -DisplayName 'Plinth Player (Offline)' -ErrorAction SilentlyContinue)
+Check ($fw.Count -eq 2) "Firewall-Regeln für Offline-Empfang (TCP 47800, UDP 47801)"
+
 Write-Host "== Start über den Watchdog"
 $env:PLINTH_WINDOWED = '1'
 Start-Process "$app\Plinth.exe" -ArgumentList '--watchdog'
@@ -72,4 +76,20 @@ Check (WaitFor { -not (Test-Path "$app\Plinth.exe") } 120) "Programmdateien entf
 Check (WaitFor { -not (Test-Path $data) } 30) "Datenordner entfernt"
 Check ($null -eq (Get-ItemProperty $runKey).PlinthPlayer) "Autostart-Eintrag entfernt"
 Check ($null -eq (Get-Process Plinth -ErrorAction SilentlyContinue)) "Keine Plinth-Prozesse mehr"
+Check (@(Get-NetFirewallRule -DisplayName 'Plinth Player (Offline)' -ErrorAction SilentlyContinue).Count -eq 0) "Firewall-Regeln entfernt"
+
+Write-Host "== Offline-Betrieb: Installation ohne Parameter, Player richtet sich selbst ein"
+$p = Start-Process $Setup -Wait -PassThru -ArgumentList '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', '/LOG=install-offline.log'
+Check ($p.ExitCode -eq 0) "Installation ohne Parameter erfolgreich"
+Check (-not (Test-Path "$data\provision.json")) "Keine provision.json"
+Start-Process "$app\Plinth.exe" -ArgumentList '--watchdog'
+Check (WaitFor { (Count 'Offline-Empfang bereit') -ge 1 }) "Player startet ohne Eingabe im Offline-Betrieb"
+$info = $null
+Check (WaitFor { try { $script:info = Invoke-RestMethod 'http://127.0.0.1:47800/plinth/v1/info' -TimeoutSec 3; $true } catch { $false } } 30) "Offline-Empfang antwortet auf Port 47800"
+Check ($info.app -eq 'plinth-player' -and $info.paired -eq $false) "Info: Player, noch nicht gekoppelt"
+$cfg = Get-Content "$data\config.json" -Raw -Encoding UTF8 | ConvertFrom-Json
+Check ($cfg.mode -eq 'offline' -and $cfg.pairCode -match '^\d{6}$') "Kopplungscode erzeugt"
+Check ($cfg.powerConfigured -eq $true) "Energieoptionen vom Player gesetzt"
+Start-Process "$app\unins000.exe" -Wait -ArgumentList '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART'
+Check (WaitFor { -not (Test-Path "$app\Plinth.exe") } 120) "Offline-Installation wieder entfernt"
 Write-Host "Alle Installer-Prüfungen bestanden."

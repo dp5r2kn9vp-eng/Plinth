@@ -8,13 +8,14 @@ const { app, BrowserWindow, protocol, ipcMain, globalShortcut, safeStorage, powe
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
-const { spawn } = require('node:child_process');
+const { spawn, spawnSync } = require('node:child_process');
 const { Readable } = require('node:stream');
 const { dataDir } = require('./paths');
 const { Logger } = require('./logger');
 const { Config } = require('./config');
 const { Maintenance } = require('./maintenance');
 const { SyncEngine } = require('./sync');
+const { OfflineReceiver } = require('./offline');
 const { Watchdog } = require('./watchdog');
 
 const DATA = dataDir();
@@ -83,6 +84,7 @@ function runPlayer() {
   let win = null;
   let config = null;
   let sync = null;
+  let offline = null;
   let allowClose = false;
   let unlockedUntil = 0;
   let maintenanceTimer = null;
@@ -103,6 +105,8 @@ function runPlayer() {
     deviceName: config.get('deviceName') ?? os.hostname(),
     version: VERSION,
     shortcut: SHORTCUT,
+    mode: offline ? 'offline' : 'cloud',
+    offline: offline ? { code: offline.pairCode, addresses: offline.addresses(), port: offline.port, paired: offline.paired } : null,
   });
 
   app.on('second-instance', () => win?.focus());
@@ -124,9 +128,70 @@ function runPlayer() {
     if (process.env.PLINTH_WATCHDOG === '1') {
       setInterval(() => process.stdout.write('HB\n'), 10000).unref();
     }
+    selfConfigure();
     if (config.token) startSync();
-    else provision().then((ok) => ok || setScreen('setup'));
+    else {
+      provision().then((result) => {
+        if (result === true) return;
+        // Kein Kundencode vorgegeben: Offline-Betrieb ohne jede Eingabe (Kopplung später aus dem Studio)
+        if (result === 'none' && config.get('mode') !== 'cloud') startOffline();
+        else setScreen('setup');
+      });
+    }
   });
+
+  /**
+   * Richtet den Rechner selbst ein (nur Windows, installierte Fassung): Autostart, falls der Installer ihn nicht
+   * gesetzt hat, und einmalig Energieoptionen (Bildschirm und PC schlafen nie). Fehler sind nicht kritisch.
+   */
+  function selfConfigure() {
+    if (process.platform !== 'win32' || !app.isPackaged || config.get('selfConfigure') === false) return;
+    try {
+      const machine = spawnSync('reg', ['query', 'HKLM\\Software\\Microsoft\\Windows\\CurrentVersion\\Run', '/v', 'PlinthPlayer'], { windowsHide: true });
+      if (machine.status !== 0) {
+        app.setLoginItemSettings({ openAtLogin: true, path: process.execPath, args: ['--watchdog'], name: 'PlinthPlayer' });
+        log.info('Autostart für dieses Benutzerkonto eingerichtet');
+      }
+    } catch (e) {
+      log.warn('Autostart konnte nicht geprüft werden', { error: e.message });
+    }
+    if (!config.get('powerConfigured')) {
+      for (const args of [['/change', 'monitor-timeout-ac', '0'], ['/change', 'standby-timeout-ac', '0'], ['/change', 'hibernate-timeout-ac', '0']]) {
+        spawnSync('powercfg', args, { windowsHide: true });
+      }
+      config.set({ powerConfigured: true });
+      log.info('Energieoptionen gesetzt: Bildschirm und PC schlafen nie');
+    }
+  }
+
+  // ---------------------------------------------------------- Offline-Betrieb
+
+  function startOffline() {
+    if (offline) return;
+    if (config.get('mode') !== 'offline') config.set({ mode: 'offline' });
+    offline = new OfflineReceiver({ dataDir: DATA, config, log, version: VERSION });
+    offline.on('content', showContent);
+    offline.on('status', (s) => send('status', s));
+    offline.on('settings', () => send('state', publicState()));
+    offline.on('paired', () => send('state', publicState()));
+    if (screenState !== 'player') setScreen('waiting');
+    offline.start().then(() => send('state', publicState())).catch(() => send('status', offline?.status));
+  }
+
+  function stopOffline() {
+    offline?.stop();
+    offline = null;
+  }
+
+  function showContent(manifest) {
+    lastContent = {
+      revision: manifest.revision,
+      layout: manifest.layout,
+      files: Object.fromEntries(manifest.files.map((f) => [f.id, `plinth://media/${path.basename(f.path)}`])),
+    };
+    setScreen('player');
+    send('content', lastContent);
+  }
 
   /**
    * Zero-Touch-Rollout: Der Installer legt provision.json ab ({kundencode, pin, apiUrl?, name?, hideCursor?}).
@@ -138,7 +203,7 @@ function runPlayer() {
     try {
       p = JSON.parse(fs.readFileSync(file, 'utf8').replace(/^\uFEFF/, ''));
     } catch {
-      return false;
+      return 'none';
     }
     log.info('Automatische Einrichtung aus provision.json');
     const res = await register({ kundencode: p.kundencode, name: p.name || os.hostname(), pin: String(p.pin ?? ''), apiUrl: p.apiUrl, hideCursor: p.hideCursor ?? true });
@@ -220,6 +285,7 @@ function runPlayer() {
       send('state', publicState());
       if (lastContent) send('content', lastContent);
       if (sync) send('status', sync.status);
+      if (offline) send('status', offline.status);
     });
   }
 
@@ -235,15 +301,7 @@ function runPlayer() {
       pollSeconds: config.get('pollSeconds'),
       appVersion: VERSION,
     });
-    sync.on('content', (manifest) => {
-      lastContent = {
-        revision: manifest.revision,
-        layout: manifest.layout,
-        files: Object.fromEntries(manifest.files.map((f) => [f.id, `plinth://media/${path.basename(f.path)}`])),
-      };
-      setScreen('player');
-      send('content', lastContent);
-    });
+    sync.on('content', showContent);
     sync.on('status', (s) => {
       send('status', s);
       // Wieder entsperrt → Inhalte zeigen
@@ -331,7 +389,8 @@ function runPlayer() {
         log.warn('Einrichtung fehlgeschlagen', { status: res.status, code: data.error?.code });
         return { ok: false, message: msg };
       }
-      config.set({ apiUrl, deviceName: name, hideCursor: !!input.hideCursor });
+      stopOffline();
+      config.set({ apiUrl, deviceName: name, hideCursor: !!input.hideCursor, mode: 'cloud' });
       config.token = data.token;
       config.setPin(pin);
       log.info('Gerät eingerichtet', { geraetId: data.geraetId, name });
@@ -347,11 +406,13 @@ function runPlayer() {
   }
 
   ipcMain.handle('setup:cancel', () => {
-    if (config.token) setScreen(lastContent ? 'player' : 'waiting');
+    if (config.token || offline) setScreen(lastContent ? 'player' : 'waiting');
   });
 
   ipcMain.handle('maintenance:pin', (_e, pin) => {
-    const result = maintenance.tryPin(String(pin ?? ''), (p) => config.checkPin(p));
+    // Offline und noch keine PIN vom Studio: der Kopplungscode vom Bildschirm gilt als PIN
+    const check = (p) => (config.get('pin') ? config.checkPin(p) : !!offline && p === offline.pairCode);
+    const result = maintenance.tryPin(String(pin ?? ''), check);
     if (result === 'ok') unlockedUntil = Date.now() + 2 * 60 * 1000;
     else log.warn('Falsche Wartungs-PIN');
     return result;
@@ -383,7 +444,18 @@ function runPlayer() {
         return { ok: true };
       case 'sync':
         await sync?.checkNow();
-        return { ok: true, status: sync?.status };
+        return { ok: true, status: sync?.status ?? offline?.status };
+      case 'pairing':
+        return { ok: true, pairing: offline ? { code: offline.pairCode, addresses: offline.addresses(), port: offline.port, name: offline.info().name } : null };
+      case 'offline':
+        // Zurück in den Offline-Betrieb (Cloud-Verbindung lösen)
+        sync?.stop();
+        sync = null;
+        config.token = null;
+        config.set({ mode: 'offline' });
+        startOffline();
+        send('state', publicState());
+        return { ok: true };
       case 'cursor':
         config.set({ hideCursor: !config.get('hideCursor') });
         send('state', publicState());
@@ -394,9 +466,11 @@ function runPlayer() {
           info: {
             version: VERSION,
             deviceName: config.get('deviceName'),
-            apiUrl: config.get('apiUrl'),
+            apiUrl: offline ? null : config.get('apiUrl'),
+            mode: offline ? 'offline' : 'cloud',
+            offline: offline ? { code: offline.pairCode, addresses: offline.addresses(), port: offline.port, studios: config.get('studios').map((x) => x.name) } : null,
             dataDir: DATA,
-            status: sync?.status ?? null,
+            status: sync?.status ?? offline?.status ?? null,
             revision: lastContent?.revision ?? null,
             log: log.recent.slice(-40),
           },

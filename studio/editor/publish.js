@@ -1,7 +1,36 @@
 // Veröffentlichen: speichert, prüft und erzeugt eine neue Revision. Fehler zeigen genau, was fehlt.
 
-import { post } from '../lib/api.js';
-import { h, dialog } from '../lib/dom.js';
+import { get, post } from '../lib/api.js';
+import { h, dialog, formatBytes } from '../lib/dom.js';
+import { mode } from '../lib/mode.js';
+
+const PHASE = { warten: 'wartet', pruefen: 'prüft', uebertragen: 'überträgt', umschalten: 'schaltet um', fertig: 'läuft mit neuem Stand', fehler: 'Fehler' };
+
+/** Fortschritt einer Verteilung an Player im lokalen Netz (Offline-Betrieb). Ende, wenn alle fertig sind. */
+export async function distributionView(container, verteilung) {
+  const list = h('ul.dist');
+  container.appendChild(list);
+  let v = verteilung;
+  for (;;) {
+    list.replaceChildren(...Object.values(v.player).map((p) => {
+      const pct = p.total ? Math.round((p.done / p.total) * 100) : p.phase === 'fertig' ? 100 : 0;
+      return h(`li.${p.phase === 'fehler' ? 'err' : p.phase === 'fertig' ? 'ok' : 'run'}`, {},
+        h('div.row', {}, h('strong', {}, p.name), h('span.state', {}, p.fehler ?? PHASE[p.phase] ?? p.phase)),
+        h('div.progress', {}, h('div', { style: { width: `${pct}%` } })),
+        p.phase === 'uebertragen' && p.total ? h('div.muted.small', {}, `${formatBytes(p.done)} von ${formatBytes(p.total)}`) : null);
+    }));
+    if (v.fertig) break;
+    await new Promise((r) => setTimeout(r, 400));
+    v = (await get(`/offline/verteilen/${v.id}`)).verteilung;
+  }
+  const failed = Object.values(v.player).filter((p) => p.phase === 'fehler').length;
+  if (!Object.keys(v.player).length) container.appendChild(h('p.small', {}, 'Diesem Projekt ist noch kein Player zugeordnet. Unter „Geräte“ Player koppeln und zuordnen.'));
+  else if (failed) container.appendChild(h('p.small', {}, `${failed} Player konnten nicht beliefert werden. Sie zeigen weiter ihren bisherigen Stand. Später unter „Geräte“ mit „Senden“ erneut versuchen.`));
+  if (container.tagName === 'DIALOG') {
+    container.appendChild(h('div.dialog-actions', {}, h('button.btn.primary', { onclick: () => container.remove() }, 'Schließen')));
+  }
+  return v;
+}
 
 export async function publish(projekt, saveNow, assets) {
   const steps = h('ol.steps');
@@ -15,8 +44,12 @@ export async function publish(projekt, saveNow, assets) {
   };
 
   const ok = await dialog('Veröffentlichen', h('div', {},
-    h('p', {}, `Der aktuelle Entwurf von „${projekt.name}“ wird an alle zugeordneten Bildschirme verteilt.`),
-    h('p.muted.small', {}, 'Die Player laden die Änderungen im Hintergrund und schalten erst um, wenn alles vollständig da ist.')),
+    h('p', {}, mode.offline
+      ? `Der aktuelle Entwurf von „${projekt.name}“ wird an alle zugeordneten Player im lokalen Netz gesendet.`
+      : `Der aktuelle Entwurf von „${projekt.name}“ wird an alle zugeordneten Bildschirme verteilt.`),
+    h('p.muted.small', {}, mode.offline
+      ? 'Übertragen werden nur neue Dateien. Die Player schalten erst um, wenn alles vollständig und geprüft da ist.'
+      : 'Die Player laden die Änderungen im Hintergrund und schalten erst um, wenn alles vollständig da ist.')),
   { ok: 'Jetzt veröffentlichen' });
   if (!ok) return null;
 
@@ -43,6 +76,19 @@ export async function publish(projekt, saveNow, assets) {
     const { revision } = await post(`/projekte/${projekt.id}/veroeffentlichen`, {});
     s2('ok');
     step(`Revision ${revision.nummer} ist veröffentlicht (${revision.dateien} Dateien).`, 'ok');
+    if (mode.offline) {
+      const s3 = step('An die Player senden');
+      try {
+        const { verteilung } = await post('/offline/verteilen', { projektId: projekt.id });
+        const v = await distributionView(box, verteilung);
+        const failed = Object.values(v.player).some((p) => p.phase === 'fehler');
+        s3(failed ? 'err' : 'ok', failed ? 'An die Player senden – teilweise fehlgeschlagen' : undefined);
+      } catch (e) {
+        s3('err', `Senden fehlgeschlagen: ${e.message}`);
+      }
+      done(h('button.btn.primary', { onclick: () => dlg.remove() }, 'Fertig'));
+      return revision;
+    }
     box.appendChild(h('p.muted.small', {}, 'Die Bildschirme aktualisieren sich innerhalb von etwa einer Minute. Den Stand je Gerät siehst du unter „Geräte“.'));
     done(h('button.btn.primary', { onclick: () => dlg.remove() }, 'Fertig'));
     return revision;

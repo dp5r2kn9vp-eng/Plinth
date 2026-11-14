@@ -15,6 +15,7 @@ Web-Designer für die Bildschirminhalte. Statische Dateien (HTML, CSS, ES-Module
 | `editor/preview.js` | Vorschau mit derselben Laufzeit wie der Player |
 | `editor/publish.js` | Veröffentlichen mit Fehleranzeige |
 | `devices.js` | Geräte, Kundencode |
+| `devices-offline.js`, `lib/mode.js` | Offline-Betrieb (Plinth Studio Desktop): Player im Netz finden, koppeln, PIN; Verteilen beim Veröffentlichen |
 | `lib/uploader.js` | Multipart-Upload: 3 Teile parallel, SHA-256 pro Teil, Pause/Fortsetzen (auch nach Neuladen), Abbrechen |
 | `lib/sha256.js`, `lib/hash-worker.js` | SHA-256 großer Dateien im Hintergrund |
 | `lib/media.js` | Abmessungen, Dauer, Standbild von Videos |
