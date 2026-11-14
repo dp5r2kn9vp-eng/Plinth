@@ -1,0 +1,73 @@
+name: Windows-Build
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+concurrency:
+  group: windows-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Player und Installer bauen und testen
+    runs-on: windows-2022
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Version bestimmen
+        id: v
+        shell: pwsh
+        run: |
+          if ("${{ github.ref_type }}" -eq "tag") { $v = "${{ github.ref_name }}".TrimStart('v') }
+          else { $v = (Get-Content player/package.json -Raw | ConvertFrom-Json).version }
+          "version=$v" >> $env:GITHUB_OUTPUT
+
+      - name: Player bauen (electron-builder)
+        working-directory: player
+        shell: bash
+        run: |
+          npm ci
+          npx electron-builder --win --dir --config.extraMetadata.version=${{ steps.v.outputs.version }}
+
+      - name: Installer bauen (Inno Setup)
+        shell: pwsh
+        run: |
+          $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          if (-not (Test-Path $iscc)) { choco install innosetup -y --no-progress }
+          & $iscc /DAppVersion=${{ steps.v.outputs.version }} installer\plinth.iss
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Installer testen (Installation, Autostart, Watchdog, Update, Deinstallation)
+        shell: pwsh
+        run: ./installer/test-installer.ps1 -Setup "dist/PlinthSetup-${{ steps.v.outputs.version }}.exe"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: PlinthSetup-${{ steps.v.outputs.version }}
+          path: dist/PlinthSetup-*.exe
+
+      - name: Protokolle bei Fehlern
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: installer-logs
+          path: |
+            install*.log
+            C:\ProgramData\Plinth\logs\
+
+      - name: Release veröffentlichen
+        if: github.ref_type == 'tag'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "${{ github.ref_name }}" "dist/PlinthSetup-${{ steps.v.outputs.version }}.exe" --title "Plinth Player ${{ steps.v.outputs.version }}" --generate-notes

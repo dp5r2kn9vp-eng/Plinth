@@ -86,6 +86,8 @@ function runPlayer() {
   let allowClose = false;
   let unlockedUntil = 0;
   let maintenanceTimer = null;
+  let lastAlive = Date.now();
+  let lastRendererReload = 0;
   let screenState = 'loading';
   let lastContent = null;
   const maintenance = new Maintenance(DATA);
@@ -134,7 +136,7 @@ function runPlayer() {
     const file = path.join(DATA, 'provision.json');
     let p;
     try {
-      p = JSON.parse(fs.readFileSync(file, 'utf8'));
+      p = JSON.parse(fs.readFileSync(file, 'utf8').replace(/^\uFEFF/, ''));
     } catch {
       return false;
     }
@@ -181,6 +183,29 @@ function runPlayer() {
       log.error('Darstellung abgestürzt – wird neu geladen', details);
       setTimeout(() => win.reload(), 1000);
     });
+    // Lebenszeichen der Oberfläche: Stirbt der Renderer ohne Ereignis (kommt vor), wird neu geladen.
+    const RENDERER_TIMEOUT = Number(process.env.PLINTH_RENDERER_TIMEOUT_MS) || 30000;
+    lastAlive = Date.now();
+    setInterval(() => {
+      if (!win || win.isDestroyed()) return;
+      // Hängt das Neuladen selbst, zählt die Zeit trotzdem (isLoading bleibt sonst ewig true)
+      if (win.webContents.isLoading() && lastRendererReload > 0 && Date.now() - lastRendererReload > RENDERER_TIMEOUT) lastAlive = Math.min(lastAlive, lastRendererReload);
+      else if (win.webContents.isLoading()) return;
+      if (Date.now() - lastAlive > RENDERER_TIMEOUT) {
+        // Zweiter Ausfall kurz nach dem Neuladen: ganzen Player neu starten (der Watchdog übernimmt)
+        if (Date.now() - lastRendererReload < 3 * RENDERER_TIMEOUT) {
+          log.error('Darstellung erholt sich nicht – Player wird neu gestartet');
+          app.exit(1);
+          return;
+        }
+        log.error('Darstellung ohne Lebenszeichen – wird neu geladen', { sekunden: Math.round((Date.now() - lastAlive) / 1000) });
+        lastAlive = Date.now();
+        lastRendererReload = Date.now();
+        // Ein hängender Renderer ignoriert reload(): erst hart beenden, dann neu laden
+        win.webContents.forcefullyCrashRenderer();
+        setTimeout(() => win.webContents.reload(), 500);
+      }
+    }, 2000).unref();
     let unresponsiveTimer = null;
     win.on('unresponsive', () => {
       log.warn('Darstellung reagiert nicht');
@@ -379,6 +404,10 @@ function runPlayer() {
       default:
         return { ok: false };
     }
+  });
+
+  ipcMain.on('renderer:alive', () => {
+    lastAlive = Date.now();
   });
 
   ipcMain.on('renderer:error', (_e, msg) => log.error('Darstellung', { message: String(msg).slice(0, 500) }));

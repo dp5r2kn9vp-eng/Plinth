@@ -9,6 +9,9 @@ let status = {};
 
 window.addEventListener('error', (e) => api.reportError(e.message));
 window.addEventListener('unhandledrejection', (e) => api.reportError(String(e.reason)));
+// Lebenszeichen an den Hauptprozess (bleibt es aus, lädt der Player die Darstellung neu)
+api.alive();
+setInterval(() => api.alive(), 5000);
 
 // ---------- Zustand ----------
 

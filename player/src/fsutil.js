@@ -18,7 +18,8 @@ function writeAtomic(file, data) {
 
 function readJson(file, fallback = null) {
   try {
-    return JSON.parse(fs.readFileSync(file, 'utf8'));
+    // UTF-8-BOM (z. B. vom Installer geschrieben) ignorieren
+    return JSON.parse(fs.readFileSync(file, 'utf8').replace(/^\uFEFF/, ''));
   } catch {
     return fallback;
   }

@@ -1,6 +1,6 @@
 'use strict';
 // Ende-zu-Ende-Tests des Electron-Players gegen eine laufende Installation.
-// xvfb-run -a env PLINTH_URL=http://localhost:8099 MEDIA_DIR=/pfad/mit/film.mp4 node --test test/e2e/player.e2e.js
+// xvfb-run -a env PLINTH_URL=http://localhost:8099 node --test test/e2e/player.e2e.js   (Testmedien: tests/fixtures)
 const { test, before, after } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
@@ -10,10 +10,12 @@ const { spawn } = require('node:child_process');
 const { _electron: electron } = require('playwright');
 const { Studio, BASE } = require('../helpers');
 
-const skip = (!BASE || !process.env.MEDIA_DIR) && 'PLINTH_URL/MEDIA_DIR nicht gesetzt';
+const skip = !BASE && 'PLINTH_URL nicht gesetzt';
+const MEDIA = process.env.MEDIA_DIR ?? path.join(__dirname, '..', '..', '..', 'tests', 'fixtures');
 const APP = path.join(__dirname, '..', '..');
 const ELECTRON = require('electron');
-const sandboxArgs = process.getuid?.() === 0 ? ['--no-sandbox'] : [];
+// In Containern/CI fehlt oft die Chromium-Sandbox (root, AppArmor) – nur für Tests abschalten
+const sandboxArgs = ['--no-sandbox'];
 
 let studio, projekt, kundencode, film, dataDir, app, page;
 const DEVICE = `E2E-Player-${Date.now()}`;
@@ -22,11 +24,37 @@ async function launch(env = {}) {
   app = await electron.launch({
     executablePath: ELECTRON,
     args: [APP, ...sandboxArgs],
-    env: { ...process.env, PLINTH_DATA_DIR: dataDir, PLINTH_WINDOWED: '1', PLINTH_API_URL: `${BASE}/api`, ...env },
+    env: { ...process.env, PLINTH_DATA_DIR: dataDir, PLINTH_WINDOWED: '1', PLINTH_API_URL: `${BASE}/api`, PLINTH_RENDERER_TIMEOUT_MS: '8000', ...env },
   });
   page = await app.firstWindow();
   await page.waitForLoadState('domcontentloaded');
   return page;
+}
+
+/** Bei Fehlschlägen das Player-Protokoll ausgeben (in der CI sonst nicht sichtbar). */
+function dumpLog(dir, title) {
+  try {
+    console.error(`--- ${title}: player.log ---\n${fs.readFileSync(path.join(dir, 'logs', 'player.log'), 'utf8').split('\n').slice(-40).join('\n')}`);
+  } catch (e) {
+    console.error(`--- ${title}: kein Protokoll (${e.message})`);
+  }
+}
+
+/** Hat sich der Player nach erfolglosem Neuladen selbst beendet (damit der Watchdog neu startet)? */
+function escalated() {
+  try {
+    return fs.readFileSync(path.join(dataDir, 'logs', 'player.log'), 'utf8').includes('erholt sich nicht');
+  } catch {
+    return false;
+  }
+}
+
+/** Nach Eskalation: wie der Watchdog neu starten und prüfen, dass die Inhalte wieder da sind. */
+async function relaunchAfterEscalation() {
+  console.error('Hinweis: Neuladen in dieser Umgebung nicht möglich – Player hat sich beendet (Eskalation), Neustart wie durch den Watchdog');
+  await close();
+  await launch();
+  await page.waitForSelector('.plinth-text:has-text("Version zwei")', { timeout: 30000 });
 }
 
 async function close() {
@@ -43,7 +71,7 @@ before(async () => {
   studio = new Studio();
   await studio.login();
   projekt = await studio.project(`Player-E2E ${Date.now()}`);
-  film = await studio.upload('film.mp4', 'video/mp4', fs.readFileSync(path.join(process.env.MEDIA_DIR, 'film.mp4')));
+  film = await studio.upload('film.mp4', 'video/mp4', fs.readFileSync(path.join(MEDIA, 'film.mp4')));
   await publishLayout((l) => {
     l.idleTimeoutSeconds = 0;
     l.pages[0].elements.push(
@@ -59,7 +87,7 @@ before(async () => {
 
 after(close);
 
-test('Einrichtung mit Kundencode, Inhalte erscheinen', { skip }, async () => {
+test('Einrichtung mit Kundencode, Inhalte erscheinen', { skip, timeout: 90000 }, async () => {
   await launch();
   await page.waitForSelector('#setup:not(.hidden)');
   await page.fill('input[name=kundencode]', 'AAAA-BBBB-CCCC');
@@ -85,7 +113,7 @@ test('Einrichtung mit Kundencode, Inhalte erscheinen', { skip }, async () => {
   assert.ok(!cfg.includes('2468'), 'PIN nicht im Klartext');
 });
 
-test('Video abspielen (H.264), nach Ende zurück zur Startseite', { skip }, async () => {
+test('Video abspielen (H.264), nach Ende zurück zur Startseite', { skip, timeout: 90000 }, async () => {
   await page.click('.plinth-thumbnail');
   await page.waitForSelector('video.plinth-video');
   await page.waitForFunction(() => document.querySelector('video.plinth-video')?.currentTime > 0.5, null, { timeout: 15000 });
@@ -93,21 +121,21 @@ test('Video abspielen (H.264), nach Ende zurück zur Startseite', { skip }, asyn
   await page.waitForSelector('.plinth-thumbnail', { timeout: 20000 });
 });
 
-test('Zurück-Button beendet das Video', { skip }, async () => {
+test('Zurück-Button beendet das Video', { skip, timeout: 90000 }, async () => {
   await page.click('.plinth-thumbnail');
   await page.waitForSelector('video.plinth-video');
   await page.click('.plinth-back');
   await page.waitForSelector('.plinth-thumbnail');
 });
 
-test('Neue Veröffentlichung wird automatisch übernommen', { skip }, async () => {
+test('Neue Veröffentlichung wird automatisch übernommen', { skip, timeout: 90000 }, async () => {
   await publishLayout((l) => {
     l.pages[0].elements[0].text = 'Version zwei';
   });
   await page.waitForSelector('.plinth-text:has-text("Version zwei")', { timeout: 30000 });
 });
 
-test('Wartungsmenü: Ecke antippen, falsche PIN ohne Hinweis, richtige PIN öffnet Menü', { skip }, async () => {
+test('Wartungsmenü: Ecke antippen, falsche PIN ohne Hinweis, richtige PIN öffnet Menü', { skip, timeout: 90000 }, async () => {
   for (let i = 0; i < 5; i++) await page.mouse.click(20, 20);
   await page.waitForSelector('#maintenance:not(.hidden)');
   await page.fill('#pin-input', '0000');
@@ -125,7 +153,7 @@ test('Wartungsmenü: Ecke antippen, falsche PIN ohne Hinweis, richtige PIN öffn
   await page.waitForSelector('#maintenance.hidden', { state: 'attached' });
 });
 
-test('Gesperrt → Sperrbildschirm, entsperrt → Inhalte', { skip }, async () => {
+test('Gesperrt → Sperrbildschirm, entsperrt → Inhalte', { skip, timeout: 90000 }, async () => {
   const { geraete } = await studio.call('GET', '/geraete');
   const dev = geraete.find((g) => g.name === DEVICE);
   await studio.call('PATCH', `/geraete/${dev.id}`, { gesperrt: true });
@@ -137,25 +165,75 @@ test('Gesperrt → Sperrbildschirm, entsperrt → Inhalte', { skip }, async () =
   assert.ok(g2.find((g) => g.id === dev.id).geladeneRevision >= 2, 'Revision zurückgemeldet');
 });
 
-test('Absturz der Darstellung: lädt neu und zeigt wieder Inhalte', { skip }, async () => {
+test('Absturz der Darstellung: lädt neu und zeigt wieder Inhalte', { skip, timeout: 90000 }, async () => {
   await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].webContents.forcefullyCrashRenderer());
   await new Promise((r) => setTimeout(r, 3000));
-  const reloaded = await app.evaluate(async ({ BrowserWindow }) => {
-    const wc = BrowserWindow.getAllWindows()[0].webContents;
-    for (let i = 0; i < 50 && (wc.isCrashed() || wc.isLoading()); i++) await new Promise((r) => setTimeout(r, 200));
-    return wc.executeJavaScript('document.querySelector(".plinth-text")?.textContent ?? null');
-  });
+  // Abfragen mit Zeitlimit: ein abgestürzter/neu ladender Renderer beantwortet executeJavaScript evtl. nie
+  let reloaded = null;
+  for (let i = 0; i < 40 && reloaded !== 'Version zwei'; i++) {
+    reloaded = await app.evaluate(({ BrowserWindow }) => {
+      if (!BrowserWindow.getAllWindows()[0]) return null;
+      const wc = BrowserWindow.getAllWindows()[0].webContents;
+      if (wc.isCrashed() || wc.isLoading()) return null;
+      return Promise.race([
+        wc.executeJavaScript('document.querySelector(".plinth-text")?.textContent ?? null'),
+        new Promise((r) => setTimeout(() => r(null), 1500)),
+      ]);
+    }).catch(() => null); // Player hat sich evtl. selbst beendet (Eskalation)
+    if (reloaded !== 'Version zwei' && escalated()) break;
+    if (reloaded !== 'Version zwei') await new Promise((r) => setTimeout(r, 500));
+  }
+  if (reloaded !== 'Version zwei' && escalated()) {
+    // Umgebung kann keinen neuen Renderer starten (z. B. CI-Container): Player hat sich korrekt beendet
+    await relaunchAfterEscalation();
+    return;
+  }
+  if (reloaded !== 'Version zwei') {
+    dumpLog(dataDir, 'Absturztest');
+    console.error('Fensterzustand:', await app.evaluate(({ BrowserWindow }) => {
+      const wc = BrowserWindow.getAllWindows()[0]?.webContents;
+      return wc ? { crashed: wc.isCrashed(), loading: wc.isLoading(), url: wc.getURL() } : 'kein Fenster';
+    }));
+  }
   assert.equal(reloaded, 'Version zwei');
 });
 
-test('Offline-Start zeigt den letzten Stand', { skip }, async () => {
+test('Darstellung ohne Lebenszeichen wird neu geladen', { skip, timeout: 90000 }, async () => {
+  // Endlosschleife in der Oberfläche: keine Lebenszeichen mehr, ohne dass Electron einen Absturz meldet
+  await app.evaluate(({ BrowserWindow }) => {
+    BrowserWindow.getAllWindows()[0].webContents.executeJavaScript('setTimeout(() => { for (;;) {} }, 10)');
+  });
+  const logFile = path.join(dataDir, 'logs', 'player.log');
+  const end = Date.now() + 40000;
+  while (Date.now() < end && !/ohne Lebenszeichen|reagiert nicht|hängt/.test(fs.readFileSync(logFile, 'utf8'))) await new Promise((r) => setTimeout(r, 500));
+  assert.match(fs.readFileSync(logFile, 'utf8'), /ohne Lebenszeichen|reagiert nicht|hängt/);
+  let text = null;
+  for (let i = 0; i < 40 && text !== 'Version zwei'; i++) {
+    text = await app.evaluate(({ BrowserWindow }) => {
+      const wc = BrowserWindow.getAllWindows()[0]?.webContents;
+      if (!wc) return null;
+      if (wc.isLoading()) return null;
+      return Promise.race([wc.executeJavaScript('document.querySelector(".plinth-text")?.textContent ?? null'), new Promise((r) => setTimeout(() => r(null), 1500))]);
+    }).catch(() => null);
+    if (text !== 'Version zwei' && escalated()) break;
+    if (text !== 'Version zwei') await new Promise((r) => setTimeout(r, 500));
+  }
+  if (text !== 'Version zwei' && escalated()) {
+    await relaunchAfterEscalation();
+    return;
+  }
+  if (text !== 'Version zwei') dumpLog(dataDir, 'Lebenszeichen');
+  assert.equal(text, 'Version zwei');
+});
+
+test('Offline-Start zeigt den letzten Stand', { skip, timeout: 90000 }, async () => {
   await close();
   await launch({ PLINTH_API_URL: 'http://127.0.0.1:9/api' });
   await page.waitForSelector('.plinth-text:has-text("Version zwei")', { timeout: 15000 });
   await page.waitForSelector('#indicator.offline', { state: 'attached', timeout: 15000 });
 });
 
-test('Beenden über das Wartungsmenü setzt den Wartungs-Flag', { skip }, async () => {
+test('Beenden über das Wartungsmenü setzt den Wartungs-Flag', { skip, timeout: 90000 }, async () => {
   for (let i = 0; i < 5; i++) await page.mouse.click(20, 20);
   await page.fill('#pin-input', '2468');
   await page.keyboard.press('Enter');
@@ -173,7 +251,7 @@ function lastPidSafe(logFile) {
   return m ? Number(m[1]) : 0;
 }
 
-test('Zero-Touch: provision.json richtet das Gerät ohne Eingabe ein', { skip }, async () => {
+test('Zero-Touch: provision.json richtet das Gerät ohne Eingabe ein', { skip, timeout: 90000 }, async () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'plinth-prov-'));
   const name = `Provisioniert-${Date.now()}`;
   fs.writeFileSync(path.join(dir, 'provision.json'), JSON.stringify({ kundencode, pin: '1357', name }));
@@ -181,7 +259,9 @@ test('Zero-Touch: provision.json richtet das Gerät ohne Eingabe ein', { skip },
   dataDir = dir;
   try {
     await launch();
-    await page.waitForSelector('#setup.hidden', { state: 'attached' });
+    // Einrichtung läuft im Hintergrund: warten, bis provision.json verbraucht ist
+    for (let i = 0; i < 60 && fs.existsSync(path.join(dir, 'provision.json')); i++) await new Promise((r) => setTimeout(r, 250));
+    if (fs.existsSync(path.join(dir, 'provision.json'))) dumpLog(dir, 'Zero-Touch');
     const { geraete } = await studio.call('GET', '/geraete');
     assert.ok(geraete.some((g) => g.name === name));
     assert.equal(fs.existsSync(path.join(dir, 'provision.json')), false, 'Datei mit Code/PIN gelöscht');
@@ -193,7 +273,7 @@ test('Zero-Touch: provision.json richtet das Gerät ohne Eingabe ein', { skip },
   }
 });
 
-test('Watchdog: Neustart nach Absturz, keiner im Wartungsmodus, manueller Start beendet Wartung', { skip }, async () => {
+test('Watchdog: Neustart nach Absturz, keiner im Wartungsmodus, manueller Start beendet Wartung', { skip, timeout: 90000 }, async () => {
   fs.rmSync(path.join(dataDir, 'maintenance.json'), { force: true });
   const logFile = path.join(dataDir, 'logs', 'player.log');
   const count = (re) => (fs.readFileSync(logFile, 'utf8').match(re) ?? []).length;

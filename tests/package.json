@@ -1,0 +1,11 @@
+{
+  "name": "plinth-tests",
+  "private": true,
+  "description": "Ende-zu-Ende-Tests für Plinth Studio",
+  "scripts": {
+    "e2e": "node --test e2e/studio.e2e.mjs"
+  },
+  "devDependencies": {
+    "playwright": "1.63.0"
+  }
+}
