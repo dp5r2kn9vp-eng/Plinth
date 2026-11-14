@@ -250,6 +250,7 @@ Videos beim Upload in einheitliches H.264-Format umrechnen, Standbild erzeugen.
 `epic:cloud`
 
 Admin-Oberfläche für dich als Betreiber.
+- Ersetzt durch Meilenstein M4 Betreiber & Abrechnung, Plan in docs/ADMINKONSOLE.md
 
 ### Download-Zeitfenster & Bandbreitenbegrenzung für Player
 `epic:betrieb`
@@ -260,3 +261,118 @@ Große Updates nachts laden, Bandbreite begrenzen.
 `doku, security`
 
 EU-Hosting, Auftragsverarbeitung, Backups der Datenbank, Monitoring.
+
+
+## M4 Betreiber & Abrechnung
+_Admin-Konsole (Laravel): Kunden, Geräte, Speicher, Lizenzen, Rechnungen, Stripe. Plan: docs/ADMINKONSOLE.md_
+
+### Admin-App Grundgerüst (Laravel), Betreiber-Login mit 2FA, Verlauf
+`epic:admin, security`
+
+Eigene Laravel-App unter /admin (admin.plinth.klangniveau.de), gleiche DB wie die API, eigene Tabellen mit Präfix adm_.
+- Übernahme aus Crewvado: OperatorSurface/OperatorSession, Login, TOTP-Einrichtung, Rate-Limiting
+- adm_verlauf: Betreiber, Zeit, Kunde, Aktion, vorher/nachher, Begründung (verschlüsselt)
+- Auslieferung per FTP wie Crewvado (vendor im Paket), Webcron für Laravel-Scheduler
+- Tests: kein Zugriff ohne 2FA, Kunden-Login gilt nicht in der Konsole
+
+### API: Kundenstatus, Gerätelimit, Speicherkontingent, Studio-Sperre
+`epic:cloud, epic:admin, security`
+
+API-Migration (api/migrations): kunden.status, test_bis, max_geraete, speicher_kontingent_bytes, studio_gesperrt, sperr_grund, speicher_ziel, kundennummer.
+- Geräteregistrierung nur bis max_geraete, klare Meldung im Player-Setup
+- Upload-Init prüft Kontingent (fertige + laufende Uploads), Hinweis ab 80 %
+- studio_gesperrt: Upload/Veröffentlichen abgelehnt, Lesen erlaubt, Player-API unverändert
+- gekuendigt/abgelaufen: Login gesperrt, Geräte-Tokens ungültig
+- Tests je Grenzfall, fremde Kunden-IDs
+
+### Konsole: Kundenliste und Kundenakte (anlegen, Test, sperren, Kundencode)
+`epic:admin`
+
+Liste mit Statusfilter (Test, aktiv, Verzug, gesperrt, gekündigt), Suche.
+- Kundenakte: Übersicht, Lizenzen & Plugins, Geräte, Speicher, Benutzer, Abrechnung, Verlauf
+- Kunde anlegen mit erstem Studio-Benutzer (Einladung), Testphase 14 Tage / 1 Player / 5 GB, verlängern, als Kunde übernehmen
+- Sperren/Entsperren, Kundencode neu erzeugen
+- Jede Änderung mit Begründung und Bestätigung, doppelte Absendung ohne Wirkung
+
+### Konsole: Geräteübersicht über alle Kunden
+`epic:admin, epic:betrieb`
+
+Name, Kunde, Version, letzter Heartbeat, geladene Revision, IP.
+- Filter: offline > 1 h, veraltete Version, gesperrt
+- Gerät sperren/entfernen (mit Begründung)
+
+### Konsole: Speicher (Messung, Kontingent, Bucket-Abgleich, Kosten)
+`epic:admin, epic:storage`
+
+- Nächtliche Messung je Kunde aus dateien in adm_speicher_messungen, Verlauf 90 Tage
+- Kontingent je Kunde = 10 GB je Abo-Lizenz + Zusatzspeicher (bzw. Test 5 GB)
+- Wöchentlicher Abgleich Bucket ↔ DB: verwaiste Objekte, abgebrochene Multipart-Uploads, Abweichung; keine automatische Löschung
+- Größte Dateien je Kunde, geschätzte Anbieterkosten
+
+### Preiskatalog und Verträge
+`epic:abrechnung, epic:admin`
+
+Preise netto mit Gültigkeitsdatum: Abo 39,95 €/Monat bzw. 399,50 €/Jahr je Player, Einmal-Kauf 599,95 € (ab 5: 539,95, ab 10: 509,95, ab 25: 479,95), Wartung 119,95 €/Jahr, Cloud-Zusatz 9,95 €/Player/Monat, Zusatzspeicher 9,95 €/50 GB/Monat.
+- adm_vertraege mit Preis-Snapshot, Laufzeit, gekündigt zum
+- Kostenlose Freischaltung mit Enddatum und Begründung
+- Vertragsänderung setzt max_geraete und Kontingent in kunden
+
+### Rechnungssteller, Rechnungen, E-Rechnung (aus Crewvado)
+`epic:abrechnung`
+
+Übernahme InvoiceIssuer, EInvoice, PDF.
+- Lückenlose Nummern, Snapshot von Steller und Empfänger, USt 19 % / Reverse Charge
+- PDF mit ZUGFeRD, XRechnung mit Leitweg-ID
+- Gutschrift/Storno, Zahlung von Hand buchen
+
+### Zahlarten über Stripe, Freischaltung „auf Rechnung“
+`epic:abrechnung, security`
+
+Übernahme StripeClient, CompanyBillingService.
+- Karte und SEPA per SetupIntent, nur Marke + letzte 4 gespeichert
+- Off-Session-Einzug je Rechnung mit Idempotenzschlüssel, Webhook für Ergebnis
+- „Auf Rechnung“ je Kunde durch Betreiber freischalten/entziehen
+
+### Abo-Lauf: monatlich/jährlich, anteilig, Kündigung
+`epic:abrechnung`
+
+Täglicher Lauf (Europe/Berlin): fällige Verträge → Rechnung → Einzug oder Versand (14 Tage Ziel).
+- Mehr Lizenzen anteilig taggenau bis gemeinsamem Laufzeitende
+- Weniger Lizenzen/Kündigung zum Laufzeitende
+- Wiederholbar ohne Doppelrechnung
+
+### Mahnwesen: Studio-Sperre, Player laufen weiter
+`epic:abrechnung, epic:betrieb`
+
+Übernahme PaymentDunningService.
+- Tag 1 Hinweis im Studio, Tag 7 Erinnerung, Tag 14 studio_gesperrt
+- Zahlung oder Betreiberfreigabe (Begründung) hebt sofort auf
+- Wiedergabe auf den Playern nie betroffen; Test und Freischaltungen nie betroffen
+
+### Einmal-Kauf, Wartung, Cloud-Zusatz, eigener S3-Bucket
+`epic:abrechnung, epic:storage`
+
+- Kauf mit Staffelpreis, Wartung 1 Jahr inklusive, Verlängerung 119,95 €/Lizenz/Jahr
+- Nach Wartungsende keine Auto-Updates, Player läuft weiter
+- Ohne Cloud-Zusatz: Veröffentlichung in eigenen S3-kompatiblen Bucket des Kunden (Zugangsdaten verschlüsselt, Verbindungstest)
+- Mit Cloud-Zusatz: unser Speicher, 10 GB je Player
+
+### Plugins: Katalog und Einmalkauf je Kunde
+`epic:abrechnung, epic:admin`
+
+Plugin-Katalog mit Einmalpreis, Kauf gilt für alle Lizenzen des Kunden, Freischaltung in der Kundenakte.
+
+### Monatsabschluss und Stripe-Gebühren
+`epic:abrechnung`
+
+Übernahme MonthlyClosing: ZIP mit Rechnungs-PDFs, Übersicht, CSV, XLSX; Abweichungen Stripe ↔ gebuchte Rechnungen; Gebührenübersicht.
+
+### Konsole: Dashboard und Monitoring
+`epic:admin, epic:betrieb`
+
+MRR, aktive Lizenzen (Abo/Kauf), Player online/offline, Speicher gesamt vs. Bucket, überfällige Rechnungen, Cron-Status, Datenbankgröße.
+
+### Studio: Abrechnungsseite für Kunden
+`epic:abrechnung, epic:designer`
+
+Rechnungsdaten, Zahlarten, Rechnungen als PDF, Lizenzen/Speicher dazubuchen, Kündigung zum Laufzeitende; nur Kunden-Admins.

@@ -9,9 +9,10 @@ MILESTONES = {
     "M1 MVP": "Erster Kunde: Designer, Veröffentlichen, Player, Installer (FTP-Backend)",
     "M2 Betrieb": "Zeitsteuerung, Push, Gerätestatus, Auto-Update",
     "M3 Cloud": "Backend mit Konten, S3-Speicher, Transcoding",
+    "M4 Betreiber & Abrechnung": "Admin-Konsole (Laravel): Kunden, Geräte, Speicher, Lizenzen, Rechnungen, Stripe. Plan: docs/ADMINKONSOLE.md",
 }
 LABELS = ["epic:architektur", "epic:designer", "epic:player", "epic:installer",
-          "epic:storage", "epic:betrieb", "epic:cloud", "security", "doku"]
+          "epic:storage", "epic:betrieb", "epic:cloud", "epic:admin", "epic:abrechnung", "security", "doku"]
 
 # (Titel, Milestone, Labels, Beschreibung inkl. Akzeptanzkriterien)
 T = [
@@ -95,11 +96,42 @@ T = [
  ("Transcoding & Thumbnail-Erzeugung serverseitig", "M3 Cloud", ["epic:cloud"],
   "Videos beim Upload in einheitliches H.264-Format umrechnen, Standbild erzeugen."),
  ("Mandantenverwaltung (Kunden anlegen, Geräte, Speicherkontingent)", "M3 Cloud", ["epic:cloud"],
-  "Admin-Oberfläche für dich als Betreiber."),
+  "Admin-Oberfläche für dich als Betreiber.\n- Ersetzt durch Meilenstein M4 Betreiber & Abrechnung, Plan in docs/ADMINKONSOLE.md"),
  ("Download-Zeitfenster & Bandbreitenbegrenzung für Player", "M3 Cloud", ["epic:betrieb"],
   "Große Updates nachts laden, Bandbreite begrenzen."),
  ("Datenschutz & Betrieb (AVV, Backups, Monitoring)", "M3 Cloud", ["doku", "security"],
   "EU-Hosting, Auftragsverarbeitung, Backups der Datenbank, Monitoring."),
+ # ---------------- M4 Betreiber & Abrechnung ----------------
+ ('Admin-App Grundgerüst (Laravel), Betreiber-Login mit 2FA, Verlauf', 'M4 Betreiber & Abrechnung', ['epic:admin', 'security'],
+  'Eigene Laravel-App unter /admin (admin.plinth.klangniveau.de), gleiche DB wie die API, eigene Tabellen mit Präfix adm_.\n- Übernahme aus Crewvado: OperatorSurface/OperatorSession, Login, TOTP-Einrichtung, Rate-Limiting\n- adm_verlauf: Betreiber, Zeit, Kunde, Aktion, vorher/nachher, Begründung (verschlüsselt)\n- Auslieferung per FTP wie Crewvado (vendor im Paket), Webcron für Laravel-Scheduler\n- Tests: kein Zugriff ohne 2FA, Kunden-Login gilt nicht in der Konsole'),
+ ('API: Kundenstatus, Gerätelimit, Speicherkontingent, Studio-Sperre', 'M4 Betreiber & Abrechnung', ['epic:cloud', 'epic:admin', 'security'],
+  'API-Migration (api/migrations): kunden.status, test_bis, max_geraete, speicher_kontingent_bytes, studio_gesperrt, sperr_grund, speicher_ziel, kundennummer.\n- Geräteregistrierung nur bis max_geraete, klare Meldung im Player-Setup\n- Upload-Init prüft Kontingent (fertige + laufende Uploads), Hinweis ab 80 %\n- studio_gesperrt: Upload/Veröffentlichen abgelehnt, Lesen erlaubt, Player-API unverändert\n- gekuendigt/abgelaufen: Login gesperrt, Geräte-Tokens ungültig\n- Tests je Grenzfall, fremde Kunden-IDs'),
+ ('Konsole: Kundenliste und Kundenakte (anlegen, Test, sperren, Kundencode)', 'M4 Betreiber & Abrechnung', ['epic:admin'],
+  'Liste mit Statusfilter (Test, aktiv, Verzug, gesperrt, gekündigt), Suche.\n- Kundenakte: Übersicht, Lizenzen & Plugins, Geräte, Speicher, Benutzer, Abrechnung, Verlauf\n- Kunde anlegen mit erstem Studio-Benutzer (Einladung), Testphase 14 Tage / 1 Player / 5 GB, verlängern, als Kunde übernehmen\n- Sperren/Entsperren, Kundencode neu erzeugen\n- Jede Änderung mit Begründung und Bestätigung, doppelte Absendung ohne Wirkung'),
+ ('Konsole: Geräteübersicht über alle Kunden', 'M4 Betreiber & Abrechnung', ['epic:admin', 'epic:betrieb'],
+  'Name, Kunde, Version, letzter Heartbeat, geladene Revision, IP.\n- Filter: offline > 1 h, veraltete Version, gesperrt\n- Gerät sperren/entfernen (mit Begründung)'),
+ ('Konsole: Speicher (Messung, Kontingent, Bucket-Abgleich, Kosten)', 'M4 Betreiber & Abrechnung', ['epic:admin', 'epic:storage'],
+  '- Nächtliche Messung je Kunde aus dateien in adm_speicher_messungen, Verlauf 90 Tage\n- Kontingent je Kunde = 10 GB je Abo-Lizenz + Zusatzspeicher (bzw. Test 5 GB)\n- Wöchentlicher Abgleich Bucket ↔ DB: verwaiste Objekte, abgebrochene Multipart-Uploads, Abweichung; keine automatische Löschung\n- Größte Dateien je Kunde, geschätzte Anbieterkosten'),
+ ('Preiskatalog und Verträge', 'M4 Betreiber & Abrechnung', ['epic:abrechnung', 'epic:admin'],
+  'Preise netto mit Gültigkeitsdatum: Abo 39,95 €/Monat bzw. 399,50 €/Jahr je Player, Einmal-Kauf 599,95 € (ab 5: 539,95, ab 10: 509,95, ab 25: 479,95), Wartung 119,95 €/Jahr, Cloud-Zusatz 9,95 €/Player/Monat, Zusatzspeicher 9,95 €/50 GB/Monat.\n- adm_vertraege mit Preis-Snapshot, Laufzeit, gekündigt zum\n- Kostenlose Freischaltung mit Enddatum und Begründung\n- Vertragsänderung setzt max_geraete und Kontingent in kunden'),
+ ('Rechnungssteller, Rechnungen, E-Rechnung (aus Crewvado)', 'M4 Betreiber & Abrechnung', ['epic:abrechnung'],
+  'Übernahme InvoiceIssuer, EInvoice, PDF.\n- Lückenlose Nummern, Snapshot von Steller und Empfänger, USt 19 % / Reverse Charge\n- PDF mit ZUGFeRD, XRechnung mit Leitweg-ID\n- Gutschrift/Storno, Zahlung von Hand buchen'),
+ ('Zahlarten über Stripe, Freischaltung „auf Rechnung“', 'M4 Betreiber & Abrechnung', ['epic:abrechnung', 'security'],
+  'Übernahme StripeClient, CompanyBillingService.\n- Karte und SEPA per SetupIntent, nur Marke + letzte 4 gespeichert\n- Off-Session-Einzug je Rechnung mit Idempotenzschlüssel, Webhook für Ergebnis\n- „Auf Rechnung“ je Kunde durch Betreiber freischalten/entziehen'),
+ ('Abo-Lauf: monatlich/jährlich, anteilig, Kündigung', 'M4 Betreiber & Abrechnung', ['epic:abrechnung'],
+  'Täglicher Lauf (Europe/Berlin): fällige Verträge → Rechnung → Einzug oder Versand (14 Tage Ziel).\n- Mehr Lizenzen anteilig taggenau bis gemeinsamem Laufzeitende\n- Weniger Lizenzen/Kündigung zum Laufzeitende\n- Wiederholbar ohne Doppelrechnung'),
+ ('Mahnwesen: Studio-Sperre, Player laufen weiter', 'M4 Betreiber & Abrechnung', ['epic:abrechnung', 'epic:betrieb'],
+  'Übernahme PaymentDunningService.\n- Tag 1 Hinweis im Studio, Tag 7 Erinnerung, Tag 14 studio_gesperrt\n- Zahlung oder Betreiberfreigabe (Begründung) hebt sofort auf\n- Wiedergabe auf den Playern nie betroffen; Test und Freischaltungen nie betroffen'),
+ ('Einmal-Kauf, Wartung, Cloud-Zusatz, eigener S3-Bucket', 'M4 Betreiber & Abrechnung', ['epic:abrechnung', 'epic:storage'],
+  '- Kauf mit Staffelpreis, Wartung 1 Jahr inklusive, Verlängerung 119,95 €/Lizenz/Jahr\n- Nach Wartungsende keine Auto-Updates, Player läuft weiter\n- Ohne Cloud-Zusatz: Veröffentlichung in eigenen S3-kompatiblen Bucket des Kunden (Zugangsdaten verschlüsselt, Verbindungstest)\n- Mit Cloud-Zusatz: unser Speicher, 10 GB je Player'),
+ ('Plugins: Katalog und Einmalkauf je Kunde', 'M4 Betreiber & Abrechnung', ['epic:abrechnung', 'epic:admin'],
+  'Plugin-Katalog mit Einmalpreis, Kauf gilt für alle Lizenzen des Kunden, Freischaltung in der Kundenakte.'),
+ ('Monatsabschluss und Stripe-Gebühren', 'M4 Betreiber & Abrechnung', ['epic:abrechnung'],
+  'Übernahme MonthlyClosing: ZIP mit Rechnungs-PDFs, Übersicht, CSV, XLSX; Abweichungen Stripe ↔ gebuchte Rechnungen; Gebührenübersicht.'),
+ ('Konsole: Dashboard und Monitoring', 'M4 Betreiber & Abrechnung', ['epic:admin', 'epic:betrieb'],
+  'MRR, aktive Lizenzen (Abo/Kauf), Player online/offline, Speicher gesamt vs. Bucket, überfällige Rechnungen, Cron-Status, Datenbankgröße.'),
+ ('Studio: Abrechnungsseite für Kunden', 'M4 Betreiber & Abrechnung', ['epic:abrechnung', 'epic:designer'],
+  'Rechnungsdaten, Zahlarten, Rechnungen als PDF, Lizenzen/Speicher dazubuchen, Kündigung zum Laufzeitende; nur Kunden-Admins.'),
 ]
 
 def md():
