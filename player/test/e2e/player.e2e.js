@@ -61,7 +61,7 @@ before(async () => {
 
 after(close);
 
-test('Einrichtung mit Kundencode, Inhalte erscheinen', { skip }, async () => {
+test('Einrichtung mit Kundencode, Inhalte erscheinen', { skip, timeout: 90000 }, async () => {
   await launch();
   await page.waitForSelector('#setup:not(.hidden)');
   await page.fill('input[name=kundencode]', 'AAAA-BBBB-CCCC');
@@ -87,7 +87,7 @@ test('Einrichtung mit Kundencode, Inhalte erscheinen', { skip }, async () => {
   assert.ok(!cfg.includes('2468'), 'PIN nicht im Klartext');
 });
 
-test('Video abspielen (H.264), nach Ende zurück zur Startseite', { skip }, async () => {
+test('Video abspielen (H.264), nach Ende zurück zur Startseite', { skip, timeout: 90000 }, async () => {
   await page.click('.plinth-thumbnail');
   await page.waitForSelector('video.plinth-video');
   await page.waitForFunction(() => document.querySelector('video.plinth-video')?.currentTime > 0.5, null, { timeout: 15000 });
@@ -95,21 +95,21 @@ test('Video abspielen (H.264), nach Ende zurück zur Startseite', { skip }, asyn
   await page.waitForSelector('.plinth-thumbnail', { timeout: 20000 });
 });
 
-test('Zurück-Button beendet das Video', { skip }, async () => {
+test('Zurück-Button beendet das Video', { skip, timeout: 90000 }, async () => {
   await page.click('.plinth-thumbnail');
   await page.waitForSelector('video.plinth-video');
   await page.click('.plinth-back');
   await page.waitForSelector('.plinth-thumbnail');
 });
 
-test('Neue Veröffentlichung wird automatisch übernommen', { skip }, async () => {
+test('Neue Veröffentlichung wird automatisch übernommen', { skip, timeout: 90000 }, async () => {
   await publishLayout((l) => {
     l.pages[0].elements[0].text = 'Version zwei';
   });
   await page.waitForSelector('.plinth-text:has-text("Version zwei")', { timeout: 30000 });
 });
 
-test('Wartungsmenü: Ecke antippen, falsche PIN ohne Hinweis, richtige PIN öffnet Menü', { skip }, async () => {
+test('Wartungsmenü: Ecke antippen, falsche PIN ohne Hinweis, richtige PIN öffnet Menü', { skip, timeout: 90000 }, async () => {
   for (let i = 0; i < 5; i++) await page.mouse.click(20, 20);
   await page.waitForSelector('#maintenance:not(.hidden)');
   await page.fill('#pin-input', '0000');
@@ -127,7 +127,7 @@ test('Wartungsmenü: Ecke antippen, falsche PIN ohne Hinweis, richtige PIN öffn
   await page.waitForSelector('#maintenance.hidden', { state: 'attached' });
 });
 
-test('Gesperrt → Sperrbildschirm, entsperrt → Inhalte', { skip }, async () => {
+test('Gesperrt → Sperrbildschirm, entsperrt → Inhalte', { skip, timeout: 90000 }, async () => {
   const { geraete } = await studio.call('GET', '/geraete');
   const dev = geraete.find((g) => g.name === DEVICE);
   await studio.call('PATCH', `/geraete/${dev.id}`, { gesperrt: true });
@@ -139,25 +139,33 @@ test('Gesperrt → Sperrbildschirm, entsperrt → Inhalte', { skip }, async () =
   assert.ok(g2.find((g) => g.id === dev.id).geladeneRevision >= 2, 'Revision zurückgemeldet');
 });
 
-test('Absturz der Darstellung: lädt neu und zeigt wieder Inhalte', { skip }, async () => {
+test('Absturz der Darstellung: lädt neu und zeigt wieder Inhalte', { skip, timeout: 90000 }, async () => {
   await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].webContents.forcefullyCrashRenderer());
   await new Promise((r) => setTimeout(r, 3000));
-  const reloaded = await app.evaluate(async ({ BrowserWindow }) => {
-    const wc = BrowserWindow.getAllWindows()[0].webContents;
-    for (let i = 0; i < 50 && (wc.isCrashed() || wc.isLoading()); i++) await new Promise((r) => setTimeout(r, 200));
-    return wc.executeJavaScript('document.querySelector(".plinth-text")?.textContent ?? null');
-  });
+  // Abfragen mit Zeitlimit: ein abgestürzter/neu ladender Renderer beantwortet executeJavaScript evtl. nie
+  let reloaded = null;
+  for (let i = 0; i < 40 && reloaded !== 'Version zwei'; i++) {
+    reloaded = await app.evaluate(({ BrowserWindow }) => {
+      const wc = BrowserWindow.getAllWindows()[0].webContents;
+      if (wc.isCrashed() || wc.isLoading()) return null;
+      return Promise.race([
+        wc.executeJavaScript('document.querySelector(".plinth-text")?.textContent ?? null'),
+        new Promise((r) => setTimeout(() => r(null), 1500)),
+      ]);
+    });
+    if (reloaded !== 'Version zwei') await new Promise((r) => setTimeout(r, 500));
+  }
   assert.equal(reloaded, 'Version zwei');
 });
 
-test('Offline-Start zeigt den letzten Stand', { skip }, async () => {
+test('Offline-Start zeigt den letzten Stand', { skip, timeout: 90000 }, async () => {
   await close();
   await launch({ PLINTH_API_URL: 'http://127.0.0.1:9/api' });
   await page.waitForSelector('.plinth-text:has-text("Version zwei")', { timeout: 15000 });
   await page.waitForSelector('#indicator.offline', { state: 'attached', timeout: 15000 });
 });
 
-test('Beenden über das Wartungsmenü setzt den Wartungs-Flag', { skip }, async () => {
+test('Beenden über das Wartungsmenü setzt den Wartungs-Flag', { skip, timeout: 90000 }, async () => {
   for (let i = 0; i < 5; i++) await page.mouse.click(20, 20);
   await page.fill('#pin-input', '2468');
   await page.keyboard.press('Enter');
@@ -175,7 +183,7 @@ function lastPidSafe(logFile) {
   return m ? Number(m[1]) : 0;
 }
 
-test('Zero-Touch: provision.json richtet das Gerät ohne Eingabe ein', { skip }, async () => {
+test('Zero-Touch: provision.json richtet das Gerät ohne Eingabe ein', { skip, timeout: 90000 }, async () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'plinth-prov-'));
   const name = `Provisioniert-${Date.now()}`;
   fs.writeFileSync(path.join(dir, 'provision.json'), JSON.stringify({ kundencode, pin: '1357', name }));
@@ -195,7 +203,7 @@ test('Zero-Touch: provision.json richtet das Gerät ohne Eingabe ein', { skip },
   }
 });
 
-test('Watchdog: Neustart nach Absturz, keiner im Wartungsmodus, manueller Start beendet Wartung', { skip }, async () => {
+test('Watchdog: Neustart nach Absturz, keiner im Wartungsmodus, manueller Start beendet Wartung', { skip, timeout: 90000 }, async () => {
   fs.rmSync(path.join(dataDir, 'maintenance.json'), { force: true });
   const logFile = path.join(dataDir, 'logs', 'player.log');
   const count = (re) => (fs.readFileSync(logFile, 'utf8').match(re) ?? []).length;
