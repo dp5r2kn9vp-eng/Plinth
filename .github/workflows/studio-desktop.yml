@@ -30,7 +30,7 @@ jobs:
             target: --win nsis
             files: studio-desktop/dist/PlinthStudioSetup-*.exe
           - name: macOS
-            os: macos-14
+            os: macos-latest
             target: --mac dmg
             files: studio-desktop/dist/PlinthStudio-*-mac.dmg
     steps:
