@@ -10,9 +10,10 @@ MILESTONES = {
     "M2 Betrieb": "Zeitsteuerung, Push, Gerätestatus, Auto-Update",
     "M3 Cloud": "Backend mit Konten, S3-Speicher, Transcoding",
     "M4 Betreiber & Abrechnung": "Admin-Konsole (Laravel): Kunden, Geräte, Speicher, Lizenzen, Rechnungen, Stripe. Plan: docs/ADMINKONSOLE.md",
+    "M5 Offline-Lizenzierung": "Player offline per Maschinencode lizenzieren: signierte Geräteliste je Lizenz, Offline-Aktivierung, Deployment im lokalen Netz",
 }
 LABELS = ["epic:architektur", "epic:designer", "epic:player", "epic:installer",
-          "epic:storage", "epic:betrieb", "epic:cloud", "epic:admin", "epic:abrechnung", "security", "doku"]
+          "epic:storage", "epic:betrieb", "epic:cloud", "epic:admin", "epic:abrechnung", "epic:lizenz", "security", "doku"]
 
 # (Titel, Milestone, Labels, Beschreibung inkl. Akzeptanzkriterien)
 T = [
@@ -132,6 +133,37 @@ T = [
   'MRR, aktive Lizenzen (Abo/Kauf), Player online/offline, Speicher gesamt vs. Bucket, überfällige Rechnungen, Cron-Status, Datenbankgröße.'),
  ('Studio: Abrechnungsseite für Kunden', 'M4 Betreiber & Abrechnung', ['epic:abrechnung', 'epic:designer'],
   'Rechnungsdaten, Zahlarten, Rechnungen als PDF, Lizenzen/Speicher dazubuchen, Kündigung zum Laufzeitende; nur Kunden-Admins.'),
+ # ---------------- M5 Offline-Lizenzierung ----------------
+ ('Lizenzierung: Formate für Lizenzdatei, Anforderungsdatei und signiertes Projektpaket', 'M5 Offline-Lizenzierung', ['epic:lizenz', 'epic:architektur', 'doku', 'security'],
+  'Grundprinzip: Die Lizenz gehört zu den Geräten, nicht zum Projekt. Pro Lizenz gibt es genau eine vom Server signierte Liste aktivierter Geräte; alle Projekte teilen sie.\n- JSON-Schema in /shared für lizenz.lic: format, licenseId, customer, issuedAt, serial, maxDevices, features, validUntil, renewBefore, updatesUntil, allowVm, allowUsb, devices[] (code, label, factors[]), Projektschlüssel (öffentlich), kid, sig\n- Kanonische Serialisierung, Signatur Ed25519 über den license-Teil, kid für Schlüsselwechsel\n- Schema für die Anforderungsdatei (.req): licenseId, currentSerial, requestedDevices[], nonce\n- Manifest um licenseId und Signatur mit dem Projektschlüssel erweitern\n- Beispiele und Testvektoren (gültig, manipuliert, alte serial)'),
+ ('Player: Maschinencode aus Hardware-Merkmalen mit Toleranzabgleich', 'M5 Offline-Lizenzierung', ['epic:lizenz', 'epic:player', 'security'],
+  'Merkmale unter Windows: SMBIOS-UUID, Mainboard-Seriennummer, Seriennummer Systemlaufwerk, ProcessorId, MAC der eingebauten NIC (ohne virtuelle/USB-Adapter), TPM-2.0-Endorsement-Key falls vorhanden.\n- Einzelmerkmale normalisieren, mit Produkt-Salt per SHA-256 hashen; Maschinencode = Hash über sortierte Einzelhashes, Anzeige 5x5 Zeichen mit Prüfziffer\n- Bei jedem Start neu berechnen, nie als Wert speichern (geklonte Images bekommen neuen Code)\n- Toleranz: starkes Merkmal (UUID oder TPM) passt und mindestens 3 von 5 Merkmalen stimmen\n- Hypervisor-Erkennung; in VMs nur mit allowVm\n- Tests: Tausch NIC, Tausch Festplatte, Klon auf andere Hardware, VM'),
+ ('API: Lizenzen, Geräteplätze und Signatur der Lizenzdatei', 'M5 Offline-Lizenzierung', ['epic:lizenz', 'epic:cloud', 'security'],
+  'Tabellen für Lizenzen, Geräteplätze (registriert/aktiv), Ausstellungen (serial) und Wechsel.\n- maxDevices aus dem Vertrag (Bezug zu Gerätelimit/max_geraete)\n- Signatur mit Ed25519, privater Schlüssel nur in KMS/HSM, nie in .env oder Repo\n- Jede Neuausstellung erhöht serial und wird protokolliert\n- Tests: mehr Geräte als maxDevices abgelehnt, fremde licenseId abgelehnt'),
+ ('API: Online-Aktivierung eines Players per Lizenzschlüssel', 'M5 Offline-Lizenzierung', ['epic:lizenz', 'epic:cloud', 'epic:player'],
+  'Endpunkt: Lizenzschlüssel + Maschinencode + Einzelhashes, Antwort ist die neue signierte Lizenzdatei.\n- Freier Platz nötig, sonst klare Fehlermeldung mit Hinweis auf Lizenzerweiterung\n- Rate-Limiting, idempotent bei erneuter Aktivierung desselben Geräts\n- Optional: Player fragt alle 30 Tage nach neuerer Lizenzdatei, wenn Internet vorhanden'),
+ ('Kundenportal: Offline-Aktivierung per Anforderungsdatei', 'M5 Offline-Lizenzierung', ['epic:lizenz', 'epic:cloud', 'epic:designer'],
+  'Kunde lädt die .req-Datei von einem beliebigen Rechner mit Internet hoch (alternativ QR-Code per Handy) und erhält die signierte lizenz.lic.\n- Prüfung: Gerätezahl, Wechsel-Kontingent, currentSerial passt\n- Anzeige der aktiven und registrierten Geräte, Download der aktuellen Lizenzdatei\n- Fehlerfälle verständlich erklären'),
+ ('API: Gerätewechsel, Freigabecodes, Wechsel-Kontingent und Lease-Erneuerung', 'M5 Offline-Lizenzierung', ['epic:lizenz', 'epic:cloud', 'security'],
+  'Schließt die Wechsel-Lücke: ein abgelöstes Gerät darf nicht offline weiterlaufen.\n- Freigabecode (HMAC aus Maschinencode, serial, Player-Geheimnis) gibt einen Platz sofort frei\n- Ohne Freigabecode wird der Platz erst nach Ablauf von renewBefore der alten Lizenz frei\n- Wechsel-Kontingent: 4 Wechsel je 12 Monate, danach nur über Support\n- renewBefore Standard 180 Tage, Erneuerung online oder per Anforderungsdatei\n- Werte (Lease-Dauer, Kontingent) konfigurierbar, endgültige Werte noch offen'),
+ ('Konsole: Lizenzen und Geräteplätze verwalten (Support)', 'M5 Offline-Lizenzierung', ['epic:lizenz', 'epic:admin'],
+  'In der Kundenakte: Lizenzen, aktive und registrierte Geräte, Ausstellungen mit serial, Wechsel-Kontingent.\n- Support-Aktionen: Platz ohne Freigabecode freigeben (Hardwaredefekt), Kontingent erhöhen, allowUsb/allowVm setzen\n- Jede Aktion mit Begründung im Verlauf'),
+ ('Designer (offline): Geräteverwaltung, Anforderungsdatei und Lizenzimport', 'M5 Offline-Lizenzierung', ['epic:lizenz', 'epic:designer'],
+  'Geräte registrieren per Eingabe, QR oder geraet.id-Datei; Liste mit Status registriert/aktiv und Anzeige „x von N Plätzen belegt“.\n- Aktiv nur bis maxDevices wählbar; Austausch nur durch Abwählen eines aktiven Geräts\n- Anforderungsdatei erzeugen, signierte Lizenzdatei importieren und prüfen\n- Designer erzeugt keine Gerätefreigaben selbst, er prüft nur'),
+ ('Designer (offline): Projektschlüssel und signiertes Projektpaket', 'M5 Offline-Lizenzierung', ['epic:lizenz', 'epic:designer', 'security'],
+  'Projektschlüssel bei der ersten Aktivierung erzeugen, öffentlicher Teil kommt in die Lizenzdatei.\n- Export: Manifest mit licenseId, Projekt-ID, Version, SHA-256 aller Dateien, signiert mit dem Projektschlüssel\n- Zu jedem Player werden projekt.pkg und die aktuelle lizenz.lic übertragen'),
+ ('Designer (offline): Player im lokalen Netz finden und veröffentlichen', 'M5 Offline-Lizenzierung', ['epic:lizenz', 'epic:designer', 'epic:betrieb'],
+  'Netzwerk ist der Standardweg der Verteilung, USB nur als Ausnahme.\n- Player per mDNS/DNS-SD (_kioskplayer._tcp) finden, nur Player derselben licenseId anzeigen; manuelle Eingabe per IP/Hostname für Netze ohne Multicast\n- „Veröffentlichen“ mit Auswahl der Ziel-Player, Übertragung über HTTPS mit Prüfung des Zertifikat-Fingerprints\n- Status je Player: erreicht, übertragen, geprüft, läuft, Fehlercode\n- Designer auf dem Player-Rechner erlaubt, ohne Sonderrechte'),
+ ('Player: Aktivierungsbildschirm, Online-Aktivierung und Abmelden mit Freigabecode', 'M5 Offline-Lizenzierung', ['epic:lizenz', 'epic:player'],
+  'Ohne Lizenz: Maschinencode als Text und QR, Eingabe Lizenzschlüssel, Export geraet.id auf USB.\n- Online-Aktivierung über die API, Lizenzdatei lokal speichern\n- Im Wartungsmodus: Gerät abmelden, Lizenz löschen, Sperre merken, Freigabecode anzeigen'),
+ ('Player: Netzwerkdienst für Deployment (mDNS, HTTPS, Paketannahme)', 'M5 Offline-Lizenzierung', ['epic:lizenz', 'epic:player', 'security'],
+  'mDNS-Ankündigung mit licenseId, Maschinencode und serial.\n- HTTPS-Dienst (Standard-Port 8443, konfigurierbar), eigenes Zertifikat mit Fingerprint aus dem Maschinencode\n- Nur Pakete annehmen, deren Manifest mit dem Projektschlüssel der Lizenz signiert ist\n- Blockweise Übertragung mit Fortsetzung, Umschalten erst nach vollständiger Prüfung, altes Projekt läuft bis dahin\n- Firewall-Regel im Installer'),
+ ('Player: Lizenzabgleich im Netz (serial-Austausch zwischen Playern)', 'M5 Offline-Lizenzierung', ['epic:lizenz', 'epic:player', 'security'],
+  'Player tauschen beim Start und alle 10 Minuten ihre Lizenz-serial aus.\n- Höhere serial bei einem anderen Player derselben Lizenz: Lizenzdatei holen, Signatur prüfen, übernehmen\n- Steht das Gerät nicht mehr in der neuen Lizenz: sofort sperren (L03)\n- Getrennt gehaltene Geräte fängt weiterhin renewBefore ab'),
+ ('Player: Startprüfung, Fehlercodes, Uhrzeitschutz, USB nur mit allowUsb', 'M5 Offline-Lizenzierung', ['epic:lizenz', 'epic:player', 'security'],
+  'Prüfung bei jedem Start und jedem neuen Projekt: Signatur der Lizenz, serial nicht kleiner als die höchste gesehene, Maschinencode in devices, validUntil/renewBefore, Manifest-Signatur, licenseId, Datei-Hashes.\n- Höchste serial und letzter Zeitpunkt geschützt und mehrfach gespeichert (DPAPI, TPM-NV falls vorhanden)\n- Uhr mehr als 48 h zurückgestellt: sperren bis Zeit plausibel\n- Fehlercodes L01-L07, P01-P02 mit Maschinencode in der Meldung; neutraler Bildschirm optional\n- Import vom USB-Stick nur, wenn allowUsb gesetzt ist'),
+ ('Testplan Lizenzschutz (Szenarien vor Freigabe)', 'M5 Offline-Lizenzierung', ['epic:lizenz', 'doku', 'security'],
+  'Szenarien: Hardwaretausch einzelner Komponenten, geklontes Image, VM, Uhr zurückgestellt, alte Lizenzdatei, manipulierte Lizenzdatei, verändertes Projekt, Projekt einer fremden Lizenz, mehrere Designer mit derselben Lizenz, Wechsel ohne Freigabecode über das Lease-Ende, getauschtes Gerät im selben Netz.'),
 ]
 
 def md():
