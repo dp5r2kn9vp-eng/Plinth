@@ -63,6 +63,12 @@ function hashFile(file, onProgress) {
   return { promise, cancel: () => worker.terminate() };
 }
 
+function storageError(message) {
+  const e = new Error(message);
+  e.storage = true;
+  return e;
+}
+
 function putPart(url, blob, checksum, onProgress, signal) {
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
@@ -72,12 +78,14 @@ function putPart(url, blob, checksum, onProgress, signal) {
     xhr.onload = () => {
       if (xhr.status >= 200 && xhr.status < 300) {
         const etag = xhr.getResponseHeader('ETag');
-        etag ? resolve(etag) : reject(new Error('Speicher liefert kein ETag (CORS: ETag freigeben).'));
+        etag ? resolve(etag) : reject(storageError('Speicher liefert kein ETag (CORS: ETag freigeben).'));
       } else {
-        reject(new Error(`Speicher antwortet ${xhr.status}`));
+        // S3/R2 liefern den Grund als XML, z. B. <Code>BadDigest</Code>
+        const code = /<Code>([^<]+)<\/Code>/.exec(xhr.responseText ?? '')?.[1];
+        reject(storageError(`Speicher antwortet ${xhr.status}${code ? ` (${code})` : ''}`));
       }
     };
-    xhr.onerror = () => reject(new Error('Netzwerkfehler beim Hochladen'));
+    xhr.onerror = () => reject(storageError('Speicher nicht erreichbar oder Anfrage blockiert (CORS?)'));
     xhr.onabort = () => reject(new DOMException('Abgebrochen', 'AbortError'));
     signal?.addEventListener('abort', () => xhr.abort(), { once: true });
     xhr.send(blob);
@@ -134,6 +142,7 @@ export async function uploadFile(file, { onProgress, signal } = {}) {
       const n = queue.shift();
       const blob = file.slice((n - 1) * teilGroesse, (n - 1) * teilGroesse + partSize(n));
       const checksum = await sha256Base64(await blob.arrayBuffer());
+      let storageErr = null; // erster Fehler des Speichers; spätere API-Fehler beim Neuversuch sollen ihn nicht verdecken
       for (let attempt = 1; ; attempt++) {
         try {
           const { urls, pruefsummen } = await post(`/uploads/${id}/teile`, { teile: [n], pruefsummen: { [n]: checksum } });
@@ -147,7 +156,9 @@ export async function uploadFile(file, { onProgress, signal } = {}) {
           break;
         } catch (e) {
           inFlight.delete(n);
-          if (e.name === 'AbortError' || attempt >= RETRIES) throw e;
+          if (e.storage) storageErr ??= e;
+          if (e.name === 'AbortError') throw e;
+          if (attempt >= RETRIES) throw storageErr ?? e;
           await new Promise((r) => setTimeout(r, 1000 * attempt));
         }
       }

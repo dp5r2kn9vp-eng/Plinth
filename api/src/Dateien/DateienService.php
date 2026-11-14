@@ -6,6 +6,7 @@ namespace Plinth\Api\Dateien;
 use PDO;
 use Plinth\Api\Http\ApiException;
 use Plinth\Api\Storage\Storage;
+use Plinth\Api\Storage\UploadNotFound;
 
 /**
  * Medienbibliothek und Multipart-Uploads.
@@ -83,7 +84,19 @@ final class DateienService
     {
         $row = $this->uploadRow($kundeId, $id);
         $info = $this->uploadInfo($row);
-        $info['upload']['fertigeTeile'] = $this->storage->listParts($row['speicher_schluessel'], $row['upload_id']);
+        try {
+            $info['upload']['fertigeTeile'] = $this->storage->listParts($row['speicher_schluessel'], $row['upload_id']);
+        } catch (UploadNotFound) {
+            // Der Speicher kennt den Upload nicht (mehr). Manche Anbieter (z. B. Cloudflare R2) melden das auch,
+            // solange noch kein Teil angekommen ist. Upload aufgeben, damit das Studio neu beginnt statt festzuhängen.
+            try {
+                $this->storage->abortMultipartUpload($row['speicher_schluessel'], $row['upload_id']);
+            } catch (\Throwable) {
+                // egal: nicht abgeschlossene Uploads räumt der Speicher selbst ab
+            }
+            $this->db->prepare("UPDATE dateien SET status = 'fehler', upload_id = NULL WHERE id = ?")->execute([$id]);
+            throw new ApiException(404, 'upload_gone', 'Der Upload existiert im Speicher nicht mehr. Bitte neu hochladen.');
+        }
         return $info;
     }
 

@@ -60,7 +60,14 @@ final class S3Storage implements Storage
             if ($marker !== null) {
                 $args['PartNumberMarker'] = $marker;
             }
-            $res = $this->client->listParts($args);
+            try {
+                $res = $this->client->listParts($args);
+            } catch (S3Exception $e) {
+                if ($e->getAwsErrorCode() === 'NoSuchUpload') {
+                    throw new UploadNotFound('Multipart-Upload existiert im Speicher nicht.', 0, $e);
+                }
+                throw $e;
+            }
             foreach ($res['Parts'] ?? [] as $p) {
                 $parts[] = ['nummer' => (int) $p['PartNumber'], 'etag' => (string) $p['ETag'], 'groesse' => (int) $p['Size']];
             }
